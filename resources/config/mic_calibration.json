@@ -1,0 +1,32 @@
+{
+    "In1": {
+        "deviation_value": "21.135",
+        "binding_index": 0,
+        "sensitivity": "0.0093"
+    },
+    "In2": {
+        "deviation_value": "1.0",
+        "binding_index": 1,
+        "sensitivity": "0"
+    },
+    "In3": {
+        "deviation_value": "1.0",
+        "binding_index": 2,
+        "sensitivity": "0"
+    },
+    "In4": {
+        "deviation_value": "1.0",
+        "binding_index": 3,
+        "sensitivity": "0"
+    },
+    "In5": {
+        "deviation_value": "1.0",
+        "binding_index": 4,
+        "sensitivity": "0"
+    },
+    "In6": {
+        "deviation_value": "1.0",
+        "binding_index": 5,
+        "sensitivity": "0"
+    }
+}

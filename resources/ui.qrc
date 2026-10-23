@@ -1,0 +1,12 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+    <qresource>
+        <file>ui/window.ui</file>
+        <file>ui/imp_tube_params_setting.ui</file>
+        <file>ui/output_signal_setting.ui</file>
+        <file>ui/mic_adjust.ui</file>
+        <file>ui/output_voltage_cal.ui</file>
+        <file>ui/select_device.ui</file>
+        <file>ui/tree_config.ui</file>
+    </qresource>
+</RCC>

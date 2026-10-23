@@ -1,0 +1,17 @@
+{
+    "basic_params": {
+        "soft_value": 13,
+        "input_selected_device_id": 10,
+        "input_selected_device_name": "ASIO4ALL v2",
+        "input_selected_device_type": "ASIO",
+        "input_selected_device_samplerate": "44100",
+        "input_channel_count": 6,
+        "output_selected_device_id": 10,
+        "output_selected_device_name": "ASIO4ALL v2",
+        "output_selected_device_type": "ASIO",
+        "output_selected_device_samplerate": "44100",
+        "Vp": 0.195,
+        "_TODO_Vp": "TODO: 请在首次麦克风灵敏度校准前，依据声卡/前端实际满量程电压确认并设置 Vp。默认值 1.0 仅用于避免缺少配置导致程序报错。",
+        "is_clear": 0
+    }
+}

@@ -1,0 +1,9 @@
+{
+    "signal_info": {
+        "signal_time": 5.0,
+        "hz_down": 20.0,
+        "hz_up": 15000.0,
+        "signal_amplitude": 0.7
+    },
+    "signal_path": null
+}

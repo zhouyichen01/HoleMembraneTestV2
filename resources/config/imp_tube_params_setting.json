@@ -1,0 +1,7 @@
+{
+    "tube_params": {
+        "tube_temperature": 22.0,
+        "s_sample_mm2": 3.14,
+        "v_backing_cc": 0.1
+    }
+}
