@@ -275,15 +275,11 @@ class SelectDeviceInterface(QDialog):
             input_type = hostapis[input_device['hostapi']]['name']
             output_type = hostapis[output_device['hostapi']]['name']
 
-            input_samplerate = str(int(input_device.get('default_samplerate', 0)))
-            output_samplerate = str(int(output_device.get('default_samplerate', 0)))
-
             # 获取输入设备的通道数
             input_channel_count = input_device.get('max_input_channels', 0)
 
             utils.save_selected_devices(input_device_index, output_device_index, input_device_name, output_device_name,
-                                        input_type, output_type, input_samplerate, output_samplerate,
-                                        input_channel_count)
+                                        input_type, output_type, input_channel_count)
             # 重载json
             utils.refresh_mic_config_json(self)
             QMessageBox.information(self, "成功", "输入输出设备保存成功！")

@@ -273,108 +273,110 @@ def generate_chirp(duration: float,
     return t, y.astype(np.float32)
 
 def calculate_impedance_Lumped_parameter(
-    mic2, mic1, mic2_cal, mic1_cal, sf, temp, s_sample_mm2, v_backing_cc
+    mic2, mic1, mic2_cal, mic1_cal, rear_mic_voltage, sf, nfft,
+    sample_area_mm2, incident_tube_radius_mm, back_cavity_radius_mm,
+    front_mic_distance_mm, back_cavity_depth_mm, rear_mic_sensitivity_v_per_pa, temp,
+    atmospheric_pressure_kpa,
 ):
-    """
-    基于集总参数法（背腔阻抗 Za）计算样品的比流阻 Z。
+    """按双腔传递函数法计算传输阻抗率 ``Z`` 和质点速度 ``V``。
 
-    参数:
-    - mic2, mic1, mic2_cal, mic1_cal : ndarray
-        测量与校准四路传声器采集的时域数据（numpy 数组，长度可不同，函数内自动对齐截断）。
-    - sf : int
-        采样率（Hz）
-    - temp : float
-        实验温度（单位: 摄氏度）
-    - s_sample_mm2 : float
-        样品有效面积（单位: mm^2）
-    - v_backing_cc : float
-        背腔体积（单位: cc，即 mL）
-
-    返回:
-    - f_subset : ndarray
-        频率向量（10~10000 Hz）
-    - Z_abs, Z_Re, Z_Im : ndarray
-        Z 的模、实部、虚部（单位: Pa*s/m）
+    ``mic1`` 为前腔麦克风 pF，``mic2`` 为后腔麦克风 pR。传递函数先经
+    校准数据修正；后腔麦克风信号以 V 输入，并按其灵敏度换算为 Pa 后，
+    用于给 V 提供声压幅值和相位参考。
     """
     import numpy as np
     from scipy.signal import csd, welch
 
-    # 常量
-    temp0 = 293
-    atm0 = 101.325
-    rho0 = 1.186
-    atm = 101
+    sf = int(sf)
+    nfft = int(nfft)
+    if sf <= 0 or nfft <= 1:
+        raise ValueError("采样率和 FFT 点数必须大于 1。")
 
-    # 计算声速、密度
-    c0 = 343.2 * np.sqrt((temp + 273) / temp0)
-    rho = rho0 * (atm / atm0) * (temp0 / (temp + 273))
+    # 统一截断，确保测试、校准与后腔声压的频点严格对应。
+    signals = [mic2, mic1, mic2_cal, mic1_cal, rear_mic_voltage]
+    min_len = min(len(signal) for signal in signals)
+    if min_len < nfft:
+        raise ValueError(
+            f"录音长度不足 {nfft} 点，无法按当前 FFT 点数计算；请延长录音或降低采样率。"
+        )
+    p_r, p_f, p_r_cal, p_f_cal, p_r_voltage = (
+        np.asarray(signal, dtype=float).reshape(-1)[:min_len] for signal in signals
+    )
 
-    # 对齐四路信号长度（取最短长度截断）
-    min_len = min(len(mic2), len(mic1), len(mic2_cal), len(mic1_cal))
-    if min_len < 2:
-        raise ValueError("Signals must contain at least two samples.")
-    mic2 = np.asarray(mic2, dtype=float).reshape(-1)[:min_len]
-    mic1 = np.asarray(mic1, dtype=float).reshape(-1)[:min_len]
-    mic2_cal = np.asarray(mic2_cal, dtype=float).reshape(-1)[:min_len]
-    mic1_cal = np.asarray(mic1_cal, dtype=float).reshape(-1)[:min_len]
-
-    # # 频率参数（nfft=采样率时，频率间隔约为 1 Hz）
-    # nfft = min(sf, min_len)
-    # 频率参数（与离线脚本一致：短分段、多次平均，降低谱估计方差）
-    nfft = min(1024, min_len)
-    w = np.hanning(nfft)
+    # 与 MATLAB: nfft=sf; w=hanning(nfft); tfestimate(pR,pF,...) 对应。
+    window = np.hanning(nfft)
     noverlap = nfft // 2
 
-    # 传递函数估计（等效 MATLAB tfestimate(input, output): output / input）
-    def tfestimate(x, y):
-        f, Pxy = csd(
-            x, y, fs=sf, window=w, nperseg=nfft, noverlap=noverlap, nfft=nfft
+    def tfestimate(input_signal, output_signal):
+        ff, pxy = csd(
+            input_signal, output_signal, fs=sf, window=window,
+            nperseg=nfft, noverlap=noverlap, nfft=nfft,
         )
-        _, Pxx = welch(
-            x, fs=sf, window=w, nperseg=nfft, noverlap=noverlap, nfft=nfft
+        _, pxx = welch(
+            input_signal, fs=sf, window=window,
+            nperseg=nfft, noverlap=noverlap, nfft=nfft,
         )
-        return Pxy / Pxx, f
+        return pxy / pxx, ff
 
-    h21_test, ff = tfestimate(mic2, mic1)
-    h21_cal, _ = tfestimate(mic2_cal, mic1_cal)
+    tf, ff = tfestimate(p_r, p_f)
+    tf_cal, _ = tfestimate(p_r_cal, p_f_cal)
 
-    # 有效点筛选
+    sample_area_m2 = float(sample_area_mm2) * 1e-6
+    rear_mic_sensitivity_v_per_pa = float(rear_mic_sensitivity_v_per_pa)
+    r1 = float(incident_tube_radius_mm) / 1000.0
+    r2 = float(back_cavity_radius_mm) / 1000.0
+    d = float(front_mic_distance_mm) / 1000.0
+    cavity_depth = float(back_cavity_depth_mm) / 1000.0
+    temperature = float(temp)
+    atmospheric_pressure_kpa = float(atmospheric_pressure_kpa)
+    if min(sample_area_m2, r1, r2, d, cavity_depth, rear_mic_sensitivity_v_per_pa, atmospheric_pressure_kpa) <= 0:
+        raise ValueError("样品面积、几何尺寸、麦克风灵敏度和大气压必须大于 0。")
+
+    p_r_pa = p_r_voltage / rear_mic_sensitivity_v_per_pa
+
+    # pR 的复声压谱：使用与 TF 相同的 Hann 窗，并归一化为单边压力幅值 (Pa)。
+    # 它保留相位，因此可作为 V 的相位参考。
+    p_r_spectrum = np.fft.rfft(p_r_pa[:nfft] * window, n=nfft)
+    p_r_spectrum *= 2.0 / np.sum(window)
+
+    # 空气参数保持与用户给出的 MATLAB 公式一致。
+    temp0 = 298.0
+    atm0 = 101.325
+    rho0 = 1.186
+    c0 = 343.2 * np.sqrt((temperature + 273.0) / temp0)
+    rho = rho0 * (atmospheric_pressure_kpa / atm0) * (temp0 / (temperature + 273.0))
+    z0 = c0 * rho0
+
+    s1 = np.pi * r1 ** 2
+    s2 = np.pi * r2 ** 2
+    k1 = 2 * np.pi * ff / c0 - 1j * 0.0194 * np.sqrt(ff) / (c0 * 2 * r1)
+    k2 = 2 * np.pi * ff / c0 - 1j * 0.0194 * np.sqrt(ff) / (c0 * 2 * r2)
+
+    with np.errstate(divide="ignore", invalid="ignore"):
+        h = tf / tf_cal
+        zt = z0 * sample_area_m2 / (1j * np.sin(k2 * cavity_depth)) * (
+            h / s2 / np.cos(k1 * d)
+            + np.sin(k2 * cavity_depth) * np.tan(k1 * d) / s1
+            - np.cos(k2 * cavity_depth) / s2
+        )
+        velocity = (
+            (s2 / sample_area_m2) * 1j * p_r_spectrum
+            / (rho0 * c0) * np.sin(k2 * cavity_depth)
+        )
+
     valid = (
-        (ff > 0)
-        & np.isfinite(ff)
-        & np.isfinite(h21_test)
-        & np.isfinite(h21_cal)
-        & (np.abs(h21_cal) > 0)
+        (ff >= 10) & (ff <= 10000) & np.isfinite(zt) & np.isfinite(velocity)
+        & np.isfinite(h) & (np.abs(tf_cal) > np.finfo(float).eps)
     )
-    ff = ff[valid]
-    h21 = h21_test[valid] / h21_cal[valid]
-
-    # 单位换算
-    s_sample_mm2 = float(s_sample_mm2)
-    v_backing_cc = float(v_backing_cc)
-    if s_sample_mm2 <= 0:
-        raise ValueError("s_sample_mm2 must be greater than 0.")
-    if v_backing_cc <= 0:
-        raise ValueError("v_backing_cc must be greater than 0.")
-    s_sample = s_sample_mm2 * 1e-6  # mm^2 -> m^2
-    v_backing = v_backing_cc * 1e-6  # cc -> m^3
-
-    # 集总参数法阻抗：背腔声顺 Ca 与背腔阻抗 Za
-    ca = v_backing / (rho * c0**2)
-    za = -1j / ((2 * np.pi * ca) * ff)
-    Z = (h21 - 1) * za * s_sample
-
-    # 频率范围筛选
-    ind = (ff >= 10) & (ff <= 10000)
-    f_subset = ff[ind]
-    Z_subset = Z[ind]
-
-    # 模值和实虚部
-    Z_abs = np.abs(Z_subset)
-    Z_Re = np.real(Z_subset)
-    Z_Im = np.imag(Z_subset)
-
-    return f_subset, Z_abs, Z_Re, Z_Im
+    ff_subset = ff[valid]
+    f_subset = ff[valid]
+    z_subset = zt[valid]
+    v_subset = velocity[valid]
+    return (
+        ff_subset, f_subset,
+        np.abs(z_subset), np.real(z_subset), np.imag(z_subset),
+        np.abs(v_subset), np.real(v_subset), np.imag(v_subset),
+    )
 
 def smooth_data(data, window_length=51, polyorder=3):
     """
@@ -483,27 +485,22 @@ def write_config_content(filename, config):
         print(f"写入文件失败: {e}")
         return False
 
-def get_device_info():
-    """获取选择设备的详细信息"""
-    logger = LogManager.set_log_handler("获取设备采样率")
+def get_impedance_tube_sample_rate():
+    """读取阻抗管参数中已保存的采样率，仅允许 44.1/48 kHz。"""
     try:
-        # 获取默认输入/输出设备 ID（返回的是一个元组）
-        default_input, default_output = sd.default.device
-
-        output_device = sd.query_devices(default_output)
-        # 获取并返回默认采样率
-        name = output_device['name']
-        default_samplerate = int(output_device['default_samplerate'])
-        return default_samplerate
-
-    except Exception as e:
-        logger.info(f"获取采样率失败: {e}")
-        return None
+        ok, config = get_config_content("imp_tube_params_setting.json")
+        if ok:
+            sample_rate = int(config.get("tube_params", {}).get("sample_rate", 0))
+            if sample_rate in (44100, 48000):
+                return sample_rate
+    except (TypeError, ValueError):
+        pass
+    return None
 
 def init_selected_devide():
     """
     初始化输入输出设备。
-    - 从 basic_params.json 读取配置（设备名、类型、采样率）。
+    - 从 basic_params.json 读取配置（设备名、类型）。
     - 在本机设备中查找匹配的输入/输出设备。
     - 找到后设置为默认设备，否则报错。
     """
@@ -518,10 +515,8 @@ def init_selected_devide():
             config = json.load(f)
             input_name = config["basic_params"]["input_selected_device_name"]
             input_type = config["basic_params"]["input_selected_device_type"]
-            input_rate = config["basic_params"]["input_selected_device_samplerate"]
             output_name = config["basic_params"]["output_selected_device_name"]
             output_type = config["basic_params"]["output_selected_device_type"]
-            output_rate = config["basic_params"]["output_selected_device_samplerate"]
             devices = sd.query_devices()
             hostapis = sd.query_hostapis()
 
@@ -533,10 +528,9 @@ def init_selected_devide():
                 if dev["max_input_channels"] > 0:
                     dev_name = dev["name"]
                     dev_type = hostapis[dev["hostapi"]]["name"]
-                    dev_rate = str(int(dev.get("default_samplerate", 0)))
-                    if dev_name == input_name and dev_type == input_type and dev_rate == input_rate:
+                    if dev_name == input_name and dev_type == input_type:
                         input_index = idx
-                        logger.info(f"匹配到输入设备 index={input_index}：{dev_name} ({dev_type}, {dev_rate})")
+                        logger.info(f"匹配到输入设备 index={input_index}：{dev_name} ({dev_type})")
                         break
 
             # 匹配输出设备
@@ -544,10 +538,9 @@ def init_selected_devide():
                 if dev["max_output_channels"] > 0:
                     dev_name = dev["name"]
                     dev_type = hostapis[dev["hostapi"]]["name"]
-                    dev_rate = str(int(dev.get("default_samplerate", 0)))
-                    if dev_name == output_name and dev_type == output_type and dev_rate == output_rate:
+                    if dev_name == output_name and dev_type == output_type:
                         output_index = idx
-                        logger.info(f"匹配到输出设备 index={output_index}：{dev_name} ({dev_type}, {dev_rate})")
+                        logger.info(f"匹配到输出设备 index={output_index}：{dev_name} ({dev_type})")
                         break
             # 如果都匹配到了，则设置默认设备
             if input_index is not None and output_index is not None:
@@ -562,7 +555,7 @@ def init_selected_devide():
 
 
 def save_selected_devices(input_device_index, output_device_index, input_device_name, output_device_name, input_type,
-                          output_type, input_samplerate, output_samplerate, input_channel_count):
+                          output_type, input_channel_count):
     """
     保存选择的设备信息到 basic_params.json。
     - 打开配置文件并更新输入/输出设备参数。
@@ -587,18 +580,15 @@ def save_selected_devices(input_device_index, output_device_index, input_device_
                 config["basic_params"].get("input_selected_device_id") != input_device_index
                 or config["basic_params"].get("input_selected_device_name") != input_device_name
                 or config["basic_params"].get("input_selected_device_type") != input_type
-                or config["basic_params"].get("input_selected_device_samplerate") != input_samplerate
         ):
             config["basic_params"]["is_clear"] = 1  # 1是清空mic_cal.json
         config["basic_params"]["input_selected_device_id"] = input_device_index
         config["basic_params"]["input_selected_device_name"] = input_device_name
         config["basic_params"]["input_selected_device_type"] = input_type
-        config["basic_params"]["input_selected_device_samplerate"] = input_samplerate
 
         config["basic_params"]["output_selected_device_id"] = output_device_index
         config["basic_params"]["output_selected_device_name"] = output_device_name
         config["basic_params"]["output_selected_device_type"] = output_type
-        config["basic_params"]["output_selected_device_samplerate"] = output_samplerate
         config["basic_params"]["input_channel_count"] = input_channel_count
         # 写入文件
         with open(config_path, "w", encoding="utf-8") as f:

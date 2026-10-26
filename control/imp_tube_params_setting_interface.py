@@ -42,7 +42,7 @@ class ImptubeParamsSetInterface(QDialog):
 
     def init_images(self):
         # 示意图缩略图原本是固定尺寸，小屏幕下跟随窗口比例缩小。
-        preview_size = (self._scaled(390, 260), self._scaled(282, 188))
+        preview_size = (self._scaled(390, 260), self._scaled(230, 170))
         utils.set_clickable_graphics_image(
             parent=self,
             view=self.graphicsView,
@@ -59,10 +59,16 @@ class ImptubeParamsSetInterface(QDialog):
         try:
             with open(config_path, "r", encoding="utf-8") as f:
                 config = json.load(f)
-                self.tube_params = config.get("tube_params", {})
-                self.tube_temperature_value.setText(str(self.tube_params.get("tube_temperature", "")))
-                self.sample_area_value.setText(str(self.tube_params.get("s_sample_mm2", "")))
-                self.v_backing_cc_value.setText(str(self.tube_params.get("v_backing_cc", "")))
+                self.tube_params = config["tube_params"]
+                sample_rate = str(self.tube_params["sample_rate"])
+                self.sample_rate_value.setCurrentText(sample_rate)
+                self.sample_area_value.setText(str(self.tube_params["sample_area_mm2"]))
+                self.incident_tube_radius_value.setText(str(self.tube_params["incident_tube_radius_mm"]))
+                self.rear_mic_sensitivity_value.setText(str(self.tube_params["rear_mic_sensitivity_v_per_pa"]))
+                self.back_cavity_radius_value.setText(str(self.tube_params["back_cavity_radius_mm"]))
+                self.front_mic_distance_value.setText(str(self.tube_params["front_mic_distance_mm"]))
+                self.back_cavity_depth_value.setText(str(self.tube_params["back_cavity_depth_mm"]))
+                self.tube_temperature_value.setText(str(self.tube_params["tube_temperature"]))
 
         except Exception as e:
             self.logger.error(f"读取配置失败: {e}")
@@ -71,16 +77,31 @@ class ImptubeParamsSetInterface(QDialog):
     def save(self):
         config_path = utils.get_config_path("imp_tube_params_setting.json")
         try:
-            s_sample_mm2 = float(self.sample_area_value.text())
+            sample_rate = int(self.sample_rate_value.currentText())
+            if sample_rate not in (44100, 48000):
+                raise ValueError("采样率只能选择 44100 Hz 或 48000 Hz。")
+
+            tube_params = {
+                "sample_rate": sample_rate,
+                "nfft": sample_rate,
+                "sample_area_mm2": float(self.sample_area_value.text()),
+                "incident_tube_radius_mm": float(self.incident_tube_radius_value.text()),
+                "rear_mic_sensitivity_v_per_pa": float(self.rear_mic_sensitivity_value.text()),
+                "back_cavity_radius_mm": float(self.back_cavity_radius_value.text()),
+                "front_mic_distance_mm": float(self.front_mic_distance_value.text()),
+                "back_cavity_depth_mm": float(self.back_cavity_depth_value.text()),
+                "tube_temperature": float(self.tube_temperature_value.text()),
+                "atmospheric_pressure_kpa": float(self.tube_params["atmospheric_pressure_kpa"]),
+            }
+            for key, value in tube_params.items():
+                if key != "tube_temperature" and value <= 0:
+                    raise ValueError(f"{key} 必须大于 0。")
             config = {
-                "tube_params": {
-                    "tube_temperature": float(self.tube_temperature_value.text()),
-                    "s_sample_mm2": s_sample_mm2,
-                    "v_backing_cc": float(self.v_backing_cc_value.text())
-                }
+                "tube_params": tube_params
             }
             with open(config_path, "w", encoding="utf-8") as f:
                 json.dump(config, f, indent=4, ensure_ascii=False)
+            self.tube_params = tube_params
             if self.parent:
                 self.parent.tube_params = config["tube_params"]
             QMessageBox.information(self, "成功", "参数保存成功")

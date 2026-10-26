@@ -147,6 +147,21 @@ font: bold 12pt &quot;Microsoft YaHei&quot;;  /* 使字体加粗 */</string>
             <string>传输阻抗率Z Im</string>
            </property>
           </item>
+          <item>
+           <property name="text">
+            <string>质点速度V abs</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>质点速度V Re</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>质点速度V Im</string>
+           </property>
+          </item>
          </widget>
         </item>
         <item>

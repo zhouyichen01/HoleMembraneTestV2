@@ -261,6 +261,15 @@ class MainWindow(QMainWindow):
         elif plot_type == "传输阻抗率Z Im":
             freq_array = np.asarray(self.test_result["f"], dtype=float)
             y_array = self.test_result["Z_Im"]
+        elif plot_type == "质点速度V abs":
+            freq_array = np.asarray(self.test_result["f_v"], dtype=float)
+            y_array = self.test_result["V_abs"]
+        elif plot_type == "质点速度V Re":
+            freq_array = np.asarray(self.test_result["f_v"], dtype=float)
+            y_array = self.test_result["V_Re"]
+        elif plot_type == "质点速度V Im":
+            freq_array = np.asarray(self.test_result["f_v"], dtype=float)
+            y_array = self.test_result["V_Im"]
         else:
             return None
 
@@ -742,8 +751,10 @@ class MainWindow(QMainWindow):
                 self.del_cross()
             self.streaming_buffer = []
             QApplication.processEvents()
-            # 获取设备采样率
-            samplerate = utils.get_device_info()
+            # 使用“阻抗管参数设置”中保存的采样率
+            samplerate = utils.get_impedance_tube_sample_rate()
+            if samplerate not in (44100, 48000):
+                raise ValueError("请在“阻抗管参数设置”中选择 44100 Hz 或 48000 Hz 后再测试。")
             duration = self.signal_info['signal_time']
             # 根据目标电压，校准并生成激励信号
             result, data, amplitude, msg = utils.generate_calibrated_signal(self.signal_info, samplerate)
@@ -918,33 +929,36 @@ class MainWindow(QMainWindow):
         self.update_time_plot(time_axis, self.mic1_pa, self.mic2_pa)
 
         try:
-            mic1_cal_data, mic2_cal_data = self.load_calibration_data()
-        except Exception:
-            self.logger.warning("缺少麦克风校准文件")
-            self.test_state.setText("缺少校准文件")
-            QMessageBox.warning(self, "提示", "缺少校准文件，请先进行麦克风校准。")
+            mic1_cal_data, mic2_cal_data = self.load_calibration_data(samplerate)
+        except Exception as e:
+            self.logger.warning(f"麦克风校准数据不可用: {e}")
+            self.test_state.setText("校准数据不可用")
+            QMessageBox.warning(self, "提示", f"校准数据不可用：{e}")
             return
 
-        lumped_inputs = self._get_lumped_parameter_inputs()
-        if lumped_inputs is None:
+        impedance_params = self._get_impedance_tube_parameter_inputs()
+        if impedance_params is None:
             self.test_state.setText("参数错误")
             return
-        tube_temperature, s_sample_mm2, v_backing_cc = lumped_inputs
-        f, Z_abs, Z_Re, Z_Im = utils.calculate_impedance_Lumped_parameter(
+        (ff_subset, f_subset, Z_abs, Z_Re, Z_Im,
+         V_abs, V_Re, V_Im) = utils.calculate_impedance_Lumped_parameter(
             mic2=self.mic2_data,
             mic1=self.mic1_data,
             mic2_cal=mic2_cal_data,
             mic1_cal=mic1_cal_data,
+            rear_mic_voltage=self.mic2_data,
             sf=samplerate,
-            temp=tube_temperature,
-            s_sample_mm2=s_sample_mm2,
-            v_backing_cc=v_backing_cc,
+            **impedance_params,
         )
         self.test_result = {
-            "f": f,
+            "f": ff_subset,
+            "f_v": f_subset,
             "Z_abs": Z_abs,
             "Z_Re": Z_Re,
             "Z_Im": Z_Im,
+            "V_abs": V_abs,
+            "V_Re": V_Re,
+            "V_Im": V_Im,
         }
         self.update_plot3_by_selector()
 
@@ -989,11 +1003,21 @@ class MainWindow(QMainWindow):
         self.curve2.setData(time, mic2_pa)
 
     @staticmethod
-    def load_calibration_data():
+    def load_calibration_data(expected_sample_rate=None):
         # 读取校准数据
         cal_dir = os.path.join(os.getcwd(), "！校准")
         mic1_path = os.path.join(cal_dir, "MIC1.txt")
         mic2_path = os.path.join(cal_dir, "MIC2.txt")
+        metadata_path = os.path.join(cal_dir, "recording_metadata.json")
+
+        if expected_sample_rate is not None and os.path.exists(metadata_path):
+            with open(metadata_path, "r", encoding="utf-8") as f:
+                calibration_rate = int(json.load(f).get("sample_rate"))
+            if calibration_rate != int(expected_sample_rate):
+                raise ValueError(
+                    f"校准数据采样率为 {calibration_rate} Hz，与当前 {expected_sample_rate} Hz 不一致；"
+                    "请在当前采样率下重新进行麦克风校准。"
+                )
 
         # 加载校准数据（float32 精度）
         mic1_cal = np.loadtxt(mic1_path, dtype=np.float32)
@@ -1023,11 +1047,17 @@ class MainWindow(QMainWindow):
         Z_abs = np.asarray(self.test_result["Z_abs"], dtype=float).copy()
         Z_Re = np.asarray(self.test_result["Z_Re"], dtype=float).copy()
         Z_Im = np.asarray(self.test_result["Z_Im"], dtype=float).copy()
+        V_abs = np.asarray(self.test_result["V_abs"], dtype=float).copy()
+        V_Re = np.asarray(self.test_result["V_Re"], dtype=float).copy()
+        V_Im = np.asarray(self.test_result["V_Im"], dtype=float).copy()
 
         if self.soft_value > 3:
             Z_abs = savgol_filter(Z_abs, window_length=self.soft_value, polyorder=3)
             Z_Re = savgol_filter(Z_Re, window_length=self.soft_value, polyorder=3)
             Z_Im = savgol_filter(Z_Im, window_length=self.soft_value, polyorder=3)
+            V_abs = savgol_filter(V_abs, window_length=self.soft_value, polyorder=3)
+            V_Re = savgol_filter(V_Re, window_length=self.soft_value, polyorder=3)
+            V_Im = savgol_filter(V_Im, window_length=self.soft_value, polyorder=3)
 
         file1, _ = QFileDialog.getSaveFileName(
             self,
@@ -1043,9 +1073,12 @@ class MainWindow(QMainWindow):
         try:
             with open(file1, "w", newline='', encoding='utf-8-sig') as f:
                 writer = csv.writer(f)
-                writer.writerow(["f", "Z_abs", "Z_Re", "Z_Im"])
+                writer.writerow(["f_Z", "Z_abs", "Z_Re", "Z_Im", "f_V", "V_abs", "V_Re", "V_Im"])
                 for i in range(len(line_f)):
-                    writer.writerow([line_f[i], Z_abs[i], Z_Re[i], Z_Im[i]])
+                    writer.writerow([
+                        line_f[i], Z_abs[i], Z_Re[i], Z_Im[i],
+                        self.test_result["f_v"][i], V_abs[i], V_Re[i], V_Im[i],
+                    ])
 
             msg = f"保存成功！\n文件已保存至：\n{file1}"
             QMessageBox.information(self, "Success", msg)
@@ -1055,12 +1088,19 @@ class MainWindow(QMainWindow):
 
     def update_plot3_by_selector(self, source=None):
         text = self.plot_type_selector.currentText()
+        is_velocity = text.startswith("质点速度V")
         if "abs" in text:
-            self.plot3.setLabel('left', 'Z abs', units='Rayl')
+            label = "V abs" if is_velocity else "Z abs"
+            units = "m/s" if is_velocity else "Rayl"
+            self.plot3.setLabel('left', label, units=units)
         elif "Re" in text:
-            self.plot3.setLabel('left', 'Z Re', units='Rayl')
+            label = "V Re" if is_velocity else "Z Re"
+            units = "m/s" if is_velocity else "Rayl"
+            self.plot3.setLabel('left', label, units=units)
         elif "Im" in text:
-            self.plot3.setLabel('left', 'Z Im', units='Rayl')
+            label = "V Im" if is_velocity else "Z Im"
+            units = "m/s" if is_velocity else "Rayl"
+            self.plot3.setLabel('left', label, units=units)
         else:
             QMessageBox.warning(self, "提示", f"无{text}选项")
             return
@@ -1289,23 +1329,35 @@ class MainWindow(QMainWindow):
         item = self.plot3.plot(log_f, y, pen=mkPen(color=colour, width=1), name=line_name)
         self.history_line.append(item)
 
-    def _get_lumped_parameter_inputs(self):
+    def _get_impedance_tube_parameter_inputs(self):
         if not self.tube_params:
             QMessageBox.warning(self, "参数错误", "阻抗管参数未加载，请先检查参数设置。")
             return None
         try:
-            tube_temperature = float(self.tube_params.get("tube_temperature"))
-            s_sample_mm2 = float(self.tube_params.get("s_sample_mm2"))
-            v_backing_cc = float(self.tube_params.get("v_backing_cc"))
+            params = {
+                "nfft": int(self.tube_params.get("nfft")),
+                "sample_area_mm2": float(self.tube_params.get("sample_area_mm2")),
+                "incident_tube_radius_mm": float(self.tube_params.get("incident_tube_radius_mm")),
+                "rear_mic_sensitivity_v_per_pa": float(self.tube_params.get("rear_mic_sensitivity_v_per_pa")),
+                "back_cavity_radius_mm": float(self.tube_params.get("back_cavity_radius_mm")),
+                "front_mic_distance_mm": float(self.tube_params.get("front_mic_distance_mm")),
+                "back_cavity_depth_mm": float(self.tube_params.get("back_cavity_depth_mm")),
+                "temp": float(self.tube_params.get("tube_temperature")),
+                "atmospheric_pressure_kpa": float(self.tube_params.get("atmospheric_pressure_kpa")),
+            }
         except (TypeError, ValueError):
-            QMessageBox.warning(self, "参数错误", "阻抗管参数不完整，请填写管中温度、待测样品面积和背腔体积。")
+            QMessageBox.warning(self, "参数错误", "阻抗管参数不完整，请打开“阻抗管参数设置”补全后保存。")
             return None
 
-        if s_sample_mm2 <= 0:
-            QMessageBox.warning(self, "参数错误", "待测样品面积 s_sample_mm2 必须大于 0。")
+        if params["nfft"] <= 1:
+            QMessageBox.warning(self, "参数错误", "FFT 点数必须大于 1。")
             return None
-        if v_backing_cc <= 0:
-            QMessageBox.warning(self, "参数错误", "背腔体积 v_backing_cc 必须大于 0。")
+        positive_keys = (
+            "sample_area_mm2", "incident_tube_radius_mm", "rear_mic_sensitivity_v_per_pa", "back_cavity_radius_mm",
+            "front_mic_distance_mm", "back_cavity_depth_mm", "atmospheric_pressure_kpa",
+        )
+        if any(params[key] <= 0 for key in positive_keys):
+            QMessageBox.warning(self, "参数错误", "样品面积、几何尺寸和大气压必须大于 0。")
             return None
 
-        return tube_temperature, s_sample_mm2, v_backing_cc
+        return params

@@ -2,247 +2,74 @@
 <ui version="4.0">
  <class>Form</class>
  <widget class="QWidget" name="Form">
-  <property name="geometry">
-   <rect>
-    <x>0</x>
-    <y>0</y>
-    <width>646</width>
-    <height>436</height>
-   </rect>
-  </property>
-  <property name="windowTitle">
-   <string>阻抗管参数设置</string>
-  </property>
-  <layout class="QVBoxLayout" name="verticalLayout_5" stretch="4,2,1">
+  <property name="geometry"><rect><x>0</x><y>0</y><width>650</width><height>465</height></rect></property>
+  <property name="windowTitle"><string>阻抗管参数设置</string></property>
+  <layout class="QVBoxLayout" name="mainLayout" stretch="0,0,0,1,0">
    <item>
-    <layout class="QHBoxLayout" name="horizontalLayout_3">
-     <item>
-      <spacer name="horizontalSpacer_3">
-       <property name="orientation">
-        <enum>Qt::Horizontal</enum>
-       </property>
-       <property name="sizeHint" stdset="0">
-        <size>
-         <width>40</width>
-         <height>20</height>
-        </size>
-       </property>
-      </spacer>
-     </item>
-     <item>
-      <widget class="QGraphicsView" name="graphicsView">
-       <property name="enabled">
-        <bool>true</bool>
-       </property>
-       <property name="sizePolicy">
-        <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-         <horstretch>0</horstretch>
-         <verstretch>0</verstretch>
-        </sizepolicy>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <spacer name="horizontalSpacer_4">
-       <property name="orientation">
-        <enum>Qt::Horizontal</enum>
-       </property>
-       <property name="sizeHint" stdset="0">
-        <size>
-         <width>40</width>
-         <height>20</height>
-        </size>
-       </property>
-      </spacer>
-     </item>
+    <layout class="QHBoxLayout" name="diagramLayout">
+     <item><spacer name="diagramLeftSpacer"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property></spacer></item>
+     <item><widget class="QGraphicsView" name="graphicsView"><property name="sizePolicy"><sizepolicy hsizetype="Fixed" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property></widget></item>
+     <item><spacer name="diagramRightSpacer"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property></spacer></item>
     </layout>
    </item>
    <item>
-    <layout class="QHBoxLayout" name="horizontalLayout">
+    <spacer name="diagramToParametersSpacer">
+     <property name="orientation"><enum>Qt::Vertical</enum></property>
+     <property name="sizeType"><enum>QSizePolicy::Fixed</enum></property>
+     <property name="sizeHint" stdset="0"><size><width>20</width><height>26</height></size></property>
+    </spacer>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="parametersLayout">
+     <property name="spacing"><number>42</number></property>
+     <property name="alignment"><set>Qt::AlignHCenter|Qt::AlignTop</set></property>
      <item>
-      <spacer name="horizontalSpacer_5">
-       <property name="orientation">
-        <enum>Qt::Horizontal</enum>
-       </property>
-       <property name="sizeHint" stdset="0">
-        <size>
-         <width>40</width>
-         <height>20</height>
-        </size>
-       </property>
-      </spacer>
-     </item>
-     <item>
-      <layout class="QGridLayout" name="gridLayout">
-       <item row="0" column="0">
-        <widget class="QLabel" name="tube_temperature_label">
-         <property name="sizePolicy">
-          <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-           <horstretch>0</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
-         </property>
-         <property name="text">
-          <string>管中温度(℃)：</string>
-         </property>
-         <property name="alignment">
-          <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-         </property>
-        </widget>
-       </item>
-       <item row="0" column="1">
-        <widget class="QLineEdit" name="tube_temperature_value">
-         <property name="sizePolicy">
-          <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-           <horstretch>0</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
-         </property>
-         <property name="maximumSize">
-          <size>
-           <width>80</width>
-           <height>16777215</height>
-          </size>
-         </property>
-         <property name="alignment">
-          <set>Qt::AlignCenter</set>
-         </property>
-        </widget>
-       </item>
-       <item row="1" column="0">
-        <widget class="QLabel" name="sample_area_label">
-         <property name="sizePolicy">
-          <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-           <horstretch>0</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
-         </property>
-         <property name="text">
-          <string>待测样品面积S(mm^2)：</string>
-         </property>
-         <property name="alignment">
-          <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-         </property>
-        </widget>
-       </item>
-       <item row="1" column="1">
-        <widget class="QLineEdit" name="sample_area_value">
-         <property name="sizePolicy">
-          <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-           <horstretch>0</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
-         </property>
-         <property name="maximumSize">
-          <size>
-           <width>80</width>
-           <height>16777215</height>
-          </size>
-         </property>
-         <property name="alignment">
-          <set>Qt::AlignCenter</set>
-         </property>
-        </widget>
-       </item>
-       <item row="2" column="0">
-        <widget class="QLabel" name="v_backing_cc_label">
-         <property name="sizePolicy">
-          <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-           <horstretch>0</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
-         </property>
-         <property name="text">
-          <string>背腔体积V(cc)：</string>
-         </property>
-         <property name="alignment">
-          <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-         </property>
-        </widget>
-       </item>
-       <item row="2" column="1">
-        <widget class="QLineEdit" name="v_backing_cc_value">
-         <property name="sizePolicy">
-          <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-           <horstretch>0</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
-         </property>
-         <property name="maximumSize">
-          <size>
-           <width>80</width>
-           <height>16777215</height>
-          </size>
-         </property>
-         <property name="alignment">
-          <set>Qt::AlignCenter</set>
-         </property>
-        </widget>
-       </item>
+      <layout class="QFormLayout" name="leftFormLayout">
+       <property name="sizeConstraint"><enum>QLayout::SetFixedSize</enum></property>
+       <property name="labelAlignment"><set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set></property>
+       <property name="verticalSpacing"><number>5</number></property>
+       <item row="0" column="0"><widget class="QLabel" name="tube_temperature_label"><property name="text"><string>管中温度(℃)：</string></property></widget></item>
+       <item row="0" column="1"><widget class="QLineEdit" name="tube_temperature_value"><property name="maximumSize"><size><width>62</width><height>16777215</height></size></property><property name="alignment"><set>Qt::AlignCenter</set></property></widget></item>
+       <item row="1" column="0"><widget class="QLabel" name="incident_tube_radius_label"><property name="text"><string>入射管半径r1(mm)：</string></property></widget></item>
+       <item row="1" column="1"><widget class="QLineEdit" name="incident_tube_radius_value"><property name="maximumSize"><size><width>62</width><height>16777215</height></size></property><property name="alignment"><set>Qt::AlignCenter</set></property></widget></item>
+       <item row="2" column="0"><widget class="QLabel" name="rear_mic_sensitivity_label"><property name="text"><string>传声器2灵敏度(V/Pa)：</string></property></widget></item>
+       <item row="2" column="1"><widget class="QLineEdit" name="rear_mic_sensitivity_value"><property name="maximumSize"><size><width>62</width><height>16777215</height></size></property><property name="alignment"><set>Qt::AlignCenter</set></property></widget></item>
+       <item row="3" column="0"><widget class="QLabel" name="front_mic_distance_label"><property name="text"><string>前腔传声器到样品距离d(mm)：</string></property></widget></item>
+       <item row="3" column="1"><widget class="QLineEdit" name="front_mic_distance_value"><property name="maximumSize"><size><width>62</width><height>16777215</height></size></property><property name="alignment"><set>Qt::AlignCenter</set></property></widget></item>
       </layout>
      </item>
      <item>
-      <spacer name="horizontalSpacer_7">
-       <property name="orientation">
-        <enum>Qt::Horizontal</enum>
-       </property>
-       <property name="sizeHint" stdset="0">
-        <size>
-         <width>40</width>
-         <height>20</height>
-        </size>
-       </property>
-      </spacer>
+      <layout class="QFormLayout" name="rightFormLayout">
+       <property name="sizeConstraint"><enum>QLayout::SetFixedSize</enum></property>
+       <property name="labelAlignment"><set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set></property>
+       <property name="verticalSpacing"><number>5</number></property>
+       <item row="0" column="0"><widget class="QLabel" name="back_cavity_depth_label"><property name="text"><string>后腔深度L(mm)：</string></property></widget></item>
+       <item row="0" column="1"><widget class="QLineEdit" name="back_cavity_depth_value"><property name="maximumSize"><size><width>62</width><height>16777215</height></size></property><property name="alignment"><set>Qt::AlignCenter</set></property></widget></item>
+       <item row="1" column="0"><widget class="QLabel" name="sample_area_label"><property name="text"><string>待测样品面积Ss(mm²)：</string></property></widget></item>
+       <item row="1" column="1"><widget class="QLineEdit" name="sample_area_value"><property name="maximumSize"><size><width>62</width><height>16777215</height></size></property><property name="alignment"><set>Qt::AlignCenter</set></property></widget></item>
+       <item row="2" column="0"><widget class="QLabel" name="back_cavity_radius_label"><property name="text"><string>后腔半径r2(mm)：</string></property></widget></item>
+       <item row="2" column="1"><widget class="QLineEdit" name="back_cavity_radius_value"><property name="maximumSize"><size><width>62</width><height>16777215</height></size></property><property name="alignment"><set>Qt::AlignCenter</set></property></widget></item>
+       <item row="3" column="0"><widget class="QLabel" name="sample_rate_label"><property name="text"><string>采样率(Hz)：</string></property></widget></item>
+       <item row="3" column="1"><widget class="QComboBox" name="sample_rate_value"><property name="maximumSize"><size><width>62</width><height>16777215</height></size></property><item><property name="text"><string>44100</string></property></item><item><property name="text"><string>48000</string></property></item></widget></item>
+      </layout>
      </item>
     </layout>
    </item>
    <item>
-    <layout class="QHBoxLayout" name="horizontalLayout_2">
-     <item>
-      <spacer name="horizontalSpacer_2">
-       <property name="orientation">
-        <enum>Qt::Horizontal</enum>
-       </property>
-       <property name="sizeHint" stdset="0">
-        <size>
-         <width>40</width>
-         <height>20</height>
-        </size>
-       </property>
-      </spacer>
-     </item>
-     <item>
-      <widget class="QToolButton" name="save_button">
-       <property name="sizePolicy">
-        <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-         <horstretch>0</horstretch>
-         <verstretch>0</verstretch>
-        </sizepolicy>
-       </property>
-       <property name="styleSheet">
-        <string notr="true">QToolButton {
+    <spacer name="parametersToButtonSpacer">
+     <property name="orientation"><enum>Qt::Vertical</enum></property>
+     <property name="sizeType"><enum>QSizePolicy::Expanding</enum></property>
+     <property name="sizeHint" stdset="0"><size><width>20</width><height>40</height></size></property>
+    </spacer>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="buttonLayout">
+     <item><spacer name="buttonLeftSpacer"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property></spacer></item>
+     <item><widget class="QToolButton" name="save_button"><property name="sizePolicy"><sizepolicy hsizetype="Fixed" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property><property name="minimumSize"><size><width>70</width><height>0</height></size></property><property name="maximumSize"><size><width>70</width><height>16777215</height></size></property><property name="styleSheet"><string notr="true">QToolButton {
     padding-top: 6px;
     padding-bottom: 3px;
-}</string>
-       </property>
-       <property name="text">
-        <string>保存</string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <spacer name="horizontalSpacer">
-       <property name="orientation">
-        <enum>Qt::Horizontal</enum>
-       </property>
-       <property name="sizeHint" stdset="0">
-        <size>
-         <width>40</width>
-         <height>20</height>
-        </size>
-       </property>
-      </spacer>
-     </item>
+}</string></property><property name="text"><string>保存</string></property></widget></item>
+     <item><spacer name="buttonRightSpacer"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property></spacer></item>
     </layout>
    </item>
   </layout>

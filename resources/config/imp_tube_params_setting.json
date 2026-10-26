@@ -1,7 +1,14 @@
 {
     "tube_params": {
+        "sample_rate": 48000,
+        "nfft": 48000,
+        "sample_area_mm2": 3.14159,
+        "incident_tube_radius_mm": 10.0,
+        "rear_mic_sensitivity_v_per_pa": 0.007,
+        "back_cavity_radius_mm": 5.0,
+        "front_mic_distance_mm": 7.0,
+        "back_cavity_depth_mm": 6.4,
         "tube_temperature": 22.0,
-        "s_sample_mm2": 3.14,
-        "v_backing_cc": 0.1
+        "atmospheric_pressure_kpa": 101.0
     }
 }

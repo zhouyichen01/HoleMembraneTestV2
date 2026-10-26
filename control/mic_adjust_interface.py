@@ -153,9 +153,13 @@ class MicAdjustInterface(QDialog):
 
         np.savetxt(mic1_txt, mic1_data)
         np.savetxt(mic2_txt, mic2_data)
+        metadata_path = os.path.join(cal_dir, "recording_metadata.json")
+        with open(metadata_path, "w", encoding="utf-8") as f:
+            json.dump({"sample_rate": int(samplerate)}, f, indent=4)
 
         self.logger.info(f"MIC1 校准已保存: {mic1_txt}")
         self.logger.info(f"MIC2 校准已保存: {mic2_txt}")
+        self.logger.info(f"校准采样率已保存: {samplerate} Hz")
 
         # 5) 最终画图（时域（pa）+FFT（原始数据））
         duration = float(self.signal_info.get("signal_time", 0))
@@ -427,8 +431,10 @@ class MicAdjustInterface(QDialog):
 
             self.streaming_buffer = []
             QApplication.processEvents()
-            # 获取设备采样率
-            samplerate = utils.get_device_info()
+            # 与阻抗测试使用同一采样率，确保校准文件与测试文件的频率轴一致。
+            samplerate = utils.get_impedance_tube_sample_rate()
+            if samplerate not in (44100, 48000):
+                raise ValueError("请先在阻抗管参数设置中选择 44100 Hz 或 48000 Hz。")
             duration = self.signal_info['signal_time']
 
             # 根据目标电压，校准并生成激励信号
