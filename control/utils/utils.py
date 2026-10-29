@@ -15,7 +15,7 @@ from PyQt5.QtWidgets import (
     QGraphicsScene,
     QVBoxLayout, QApplication,
 )
-from scipy.signal import get_window, csd, welch, savgol_filter
+from scipy.signal import get_window, savgol_filter
 from scipy.fft import fft
 
 from control.log_manager import LogManager
@@ -272,6 +272,62 @@ def generate_chirp(duration: float,
 
     return t, y.astype(np.float32)
 
+
+def _aligned_welch_spectra(x, y, fs, nfft, window):
+    """返回由相同、完整且末端对齐的 Welch 窗计算的单边 Pxx、Pyy、Pxy。
+
+    保留常规 50% 重叠窗口；若最后一个窗口未恰好覆盖末尾，额外加入一个
+    与末尾对齐的完整窗口。这样不会丢弃有效尾段，且 PSD/CPSD 使用严格
+    相同的分段，传递函数计算保持可比。
+    """
+    x = np.asarray(x, dtype=np.float64).reshape(-1)
+    y = np.asarray(y, dtype=np.float64).reshape(-1)
+    sample_count = min(x.size, y.size)
+    if nfft < 2:
+        raise ValueError("nfft 必须至少为 2。")
+    if sample_count < nfft:
+        raise ValueError(
+            f"数据长度不足一个完整频谱窗：{sample_count} 点 < {nfft} 点。"
+        )
+
+    window = np.asarray(window, dtype=np.float64).reshape(-1)
+    if window.size != nfft:
+        raise ValueError(f"窗长 {window.size} 与 nfft={nfft} 不一致。")
+
+    hop_size = nfft // 2
+    last_start = sample_count - nfft
+    starts = list(range(0, last_start + 1, hop_size))
+    if starts[-1] != last_start:
+        starts.append(last_start)
+
+    bin_count = nfft // 2 + 1
+    pxx = np.zeros(bin_count, dtype=np.float64)
+    pyy = np.zeros(bin_count, dtype=np.float64)
+    pxy = np.zeros(bin_count, dtype=np.complex128)
+    for start in starts:
+        # 与 scipy.signal.welch/csd 的默认 detrend='constant' 保持一致。
+        x_segment = x[start:start + nfft]
+        y_segment = y[start:start + nfft]
+        x_fft = np.fft.rfft((x_segment - x_segment.mean()) * window, n=nfft)
+        y_fft = np.fft.rfft((y_segment - y_segment.mean()) * window, n=nfft)
+        pxx += np.abs(x_fft) ** 2
+        pyy += np.abs(y_fft) ** 2
+        pxy += np.conj(x_fft) * y_fft
+
+    scale = 1.0 / (len(starts) * fs * np.sum(window ** 2))
+    pxx *= scale
+    pyy *= scale
+    pxy *= scale
+
+    # 单边谱中，非 DC（及偶数 nfft 时的 Nyquist）频点要合并负频率能量。
+    double_slice = slice(1, -1) if nfft % 2 == 0 else slice(1, None)
+    pxx[double_slice] *= 2.0
+    pyy[double_slice] *= 2.0
+    pxy[double_slice] *= 2.0
+    frequency = np.fft.rfftfreq(nfft, d=1.0 / fs)
+    return frequency, pxx, pyy, pxy
+
+
 def calculate_impedance_Lumped_parameter(
     mic2, mic1, mic2_cal, mic1_cal, rear_mic_voltage, sf, nfft,
     sample_area_mm2, incident_tube_radius_mm, back_cavity_radius_mm,
@@ -284,9 +340,6 @@ def calculate_impedance_Lumped_parameter(
     校准数据修正；后腔麦克风信号以 V 输入，并按其灵敏度换算为 Pa 后，
     用于给 V 提供声压幅值和相位参考。
     """
-    import numpy as np
-    from scipy.signal import csd, welch
-
     sf = int(sf)
     nfft = int(nfft)
     if sf <= 0 or nfft <= 1:
@@ -305,16 +358,9 @@ def calculate_impedance_Lumped_parameter(
 
     # 与 MATLAB: nfft=sf; w=hanning(nfft); tfestimate(pR,pF,...) 对应。
     window = np.hanning(nfft)
-    noverlap = nfft // 2
-
     def tfestimate(input_signal, output_signal):
-        ff, pxy = csd(
-            input_signal, output_signal, fs=sf, window=window,
-            nperseg=nfft, noverlap=noverlap, nfft=nfft,
-        )
-        _, pxx = welch(
-            input_signal, fs=sf, window=window,
-            nperseg=nfft, noverlap=noverlap, nfft=nfft,
+        ff, pxx, _pyy, pxy = _aligned_welch_spectra(
+            input_signal, output_signal, sf, nfft, window
         )
         return pxy / pxx, ff
 

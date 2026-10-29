@@ -303,7 +303,7 @@ class MicoutputVoltageInterface(QDialog):
                 input_channels=int(channels_counts),
                 output_channels=int(output_channels),
                 duration=duration,
-                blocksize=2048,
+                blocksize=4096,
             )
             self.stream_timer.start(50)
             self.logger.info("开始输入校准流式录音")
@@ -325,15 +325,12 @@ class MicoutputVoltageInterface(QDialog):
         self.stream_timer.stop()
         stream = self.stream_instance
         self.stream_instance = None
-        recording = stream.get_recorded_data()
-        error = stream.error
-        stream.stop()
 
         try:
+            recording = stream.finalize_recording()  # 停流后排空最后一个回调块
+            error = stream.error
             if error:
                 raise RuntimeError(error)
-            if recording.shape[0] == 0:
-                raise ValueError("未采集到录音数据")
 
             recorded_data = recording[:, self._input_channel_index]
             # 延续原有逻辑：丢弃启动后的第 1 秒，再从中段取稳定数据计算。

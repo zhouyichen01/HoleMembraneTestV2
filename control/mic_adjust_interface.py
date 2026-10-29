@@ -91,13 +91,12 @@ class MicAdjustInterface(QDialog):
 
             self.stream_timer.stop()
 
-            err = getattr(self.stream_instance, "error", None)
-            recording = self.stream_instance.get_recorded_data()  # (N,4)
-
-            self.stream_instance.stop()
+            stream = self.stream_instance
             self.stream_instance = None
 
             try:
+                recording = stream.finalize_recording()  # 停流后排空最后一个回调块
+                err = getattr(stream, "error", None)
                 if err:
                     raise RuntimeError(f"流式录音出错：{err}")
 
@@ -485,7 +484,7 @@ class MicAdjustInterface(QDialog):
                 input_channels=int(input_channels),
                 output_channels=int(output_channels),
                 duration=record_duration,
-                blocksize=2048,
+                blocksize=4096,
             )
             self.stream_timer.start(50)  # 50ms 刷一次队列/判断结束
             return

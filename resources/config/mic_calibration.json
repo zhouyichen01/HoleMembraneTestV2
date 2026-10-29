@@ -1,8 +1,8 @@
 {
     "In1": {
-        "deviation_value": "3.802",
+        "deviation_value": "1.0",
         "binding_index": 0,
-        "sensitivity": "0.0511"
+        "sensitivity": "0"
     },
     "In2": {
         "deviation_value": "1.0",

@@ -32,6 +32,8 @@ class DuplexStreamingPlayRec:
         self.target_samples = 0
         # 当前已采集的采样点数
         self.samples_captured = 0
+        # 目标长度的最后一个块已经提交到队列，后续回调不可再追加数据。
+        self.capture_complete = False
         # 回调或流中出现的异常
         self.error = None
         # ===== 播放相关 =====
@@ -83,6 +85,7 @@ class DuplexStreamingPlayRec:
         self.accumulated_chunks = []
         self.error = None
         self.is_recording = True
+        self.capture_complete = False
 
         # # 4) stimulus 数据统一成二维数组 (N, out_channels)
         # stimulus_data = np.asarray(stimulus_data, dtype=np.float32)
@@ -111,6 +114,12 @@ class DuplexStreamingPlayRec:
             """
             try:
                 # ===== 播放部分 =====
+                # 达到目标长度后等待主线程关闭流时，PortAudio 仍可能再调用
+                # callback。此时只能输出静音，避免多录一个块。
+                if self.capture_complete:
+                    outdata[:] = 0
+                    return
+
                 end = self._playback_index + frames
                 # 默认填充为 0（静音）
                 outdata[:] = 0
@@ -146,6 +155,9 @@ class DuplexStreamingPlayRec:
 
                 # 达到目标长度后，异步停止流
                 if reached:
+                    # 最后一个（必要时已裁剪）块先入队，再宣布完成；主线程
+                    # 会停止流并二次排空队列，保证不会丢失这个块。
+                    self.capture_complete = True
                     self.is_recording = False
 
             except Exception as e:
@@ -190,6 +202,19 @@ class DuplexStreamingPlayRec:
         if not self.accumulated_chunks:
             return np.zeros((0, 0), dtype=np.float32)
         return np.vstack(self.accumulated_chunks)
+
+    def finalize_recording(self):
+        """停止底层流、排空队列并校验采样点数后返回录音数据。"""
+        self.stop()
+        # ``stop`` 返回后，回调不会再写入；现在排空可包含最后一个已提交块。
+        self.process_queue()
+        recording = self.get_recorded_data()
+        actual_samples = recording.shape[0]
+        if actual_samples != self.target_samples:
+            raise RuntimeError(
+                f"采集不完整：期望 {self.target_samples} 点，实际 {actual_samples} 点。"
+            )
+        return recording
 
     def stop(self):
         """
