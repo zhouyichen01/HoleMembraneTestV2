@@ -148,7 +148,7 @@ class MainWindow(QMainWindow):
         utils.set_clickable_graphics_image(
             parent=self,
             view=self.schematic1,
-            image_path=":/images/2mic薄层_画板2026_hd.png",
+            image_path=":/images/2mic薄层_画板2026_hd_new.png",
             preview_size=(435, 291),
             title="首页图片预览",
         )
@@ -564,9 +564,15 @@ class MainWindow(QMainWindow):
         self.slider.setTickPosition(QtWidgets.QSlider.TicksBelow)
 
         self.slider.valueChanged.connect(self.update_float_label)
+        # ``showMaximized`` 会在构造过程中触发 show/resize 事件；此时早期的
+        # 重定位请求可能被安全跳过，所以标签创建后主动完成一次初始定位。
+        self._reposition_slider_label()
 
     def _reposition_slider_label(self):
-        if hasattr(self, "slider") and self.slider is not None:
+        if (
+            getattr(self, "slider", None) is not None
+            and hasattr(self, "float_label")
+        ):
             self.update_float_label(self.slider.value())
 
     def showEvent(self, event):
@@ -578,6 +584,11 @@ class MainWindow(QMainWindow):
         QTimer.singleShot(0, self._reposition_slider_label)  # 窗口尺寸变化后再定位
 
     def update_float_label(self, value):
+        # 首次 show/resize 可能发生在 init_slider 创建浮动标签之前。
+        # 该次布局由 init_slider 结束后的主动重定位补上即可。
+        if not hasattr(self, "float_label"):
+            return
+
         float_value = value / 1
         self.float_label.setText(f"{float_value:.1f}")
         self.float_label.setStyleSheet("""

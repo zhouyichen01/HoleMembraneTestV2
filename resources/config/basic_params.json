@@ -1,6 +1,6 @@
 {
     "basic_params": {
-        "soft_value": 13,
+        "soft_value": 0,
         "input_selected_device_id": 13,
         "input_selected_device_name": "麦克风 (Dongyuan 6CH Microphone/Line ADC)",
         "input_selected_device_type": "Windows WASAPI",

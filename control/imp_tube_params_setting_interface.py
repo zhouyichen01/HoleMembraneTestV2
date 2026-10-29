@@ -46,7 +46,7 @@ class ImptubeParamsSetInterface(QDialog):
         utils.set_clickable_graphics_image(
             parent=self,
             view=self.graphicsView,
-            image_path=":/images/2mic薄层_画板2026_hd.png",
+            image_path=":/images/2mic薄层_画板2026_hd_new.png",
             preview_size=preview_size,
             title="参数设置图片预览",
         )
