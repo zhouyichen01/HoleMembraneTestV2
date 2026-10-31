@@ -50,6 +50,12 @@ class SelectDeviceInterface(QDialog):
         self.comboBox_2.setMinimumWidth(self._scaled(350, 180))
         self.output_sample_rate_combo.setMinimumWidth(self._scaled(80, 70))
         self.input_sample_rate_combo.setMinimumWidth(self._scaled(80, 70))
+        self.comboBox.currentIndexChanged.connect(
+            lambda _: self.update_sample_rate(self.comboBox.currentData(), self.output_sample_rate_combo)
+        )
+        self.comboBox_2.currentIndexChanged.connect(
+            lambda _: self.update_sample_rate(self.comboBox_2.currentData(), self.input_sample_rate_combo)
+        )
         # 加永久布局
         self.groupBox_4 = self.findChild(QGroupBox, 'groupBox_4')
         self.channels_layout = QVBoxLayout(self.groupBox_4)
@@ -60,6 +66,14 @@ class SelectDeviceInterface(QDialog):
         self.save_vp_button.setFixedWidth(self._scaled(75, 65))
         self.save_vp_button.clicked.connect(self.save_vp_value)
         self.load_vp_value()
+
+    def update_sample_rate(self, device_index, sample_rate_combo):
+        """设备切换时，显示该设备的默认采样率。"""
+        if device_index is None:
+            return
+        sample_rate = int(self.device_list[device_index]["default_samplerate"])
+        if sample_rate in (44100, 48000):
+            sample_rate_combo.setCurrentText(str(sample_rate))
 
     def load_sample_rates(self):
         """从设备配置载入输入、输出设备各自的采样率。"""
