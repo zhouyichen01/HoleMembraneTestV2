@@ -49,8 +49,6 @@
        <item row="1" column="1"><widget class="QLineEdit" name="sample_area_value"><property name="maximumSize"><size><width>62</width><height>16777215</height></size></property><property name="alignment"><set>Qt::AlignCenter</set></property></widget></item>
        <item row="2" column="0"><widget class="QLabel" name="back_cavity_radius_label"><property name="text"><string>后腔半径r2(mm)：</string></property></widget></item>
        <item row="2" column="1"><widget class="QLineEdit" name="back_cavity_radius_value"><property name="maximumSize"><size><width>62</width><height>16777215</height></size></property><property name="alignment"><set>Qt::AlignCenter</set></property></widget></item>
-       <item row="3" column="0"><widget class="QLabel" name="sample_rate_label"><property name="text"><string>采样率(Hz)：</string></property></widget></item>
-       <item row="3" column="1"><widget class="QComboBox" name="sample_rate_value"><property name="maximumSize"><size><width>62</width><height>16777215</height></size></property><item><property name="text"><string>44100</string></property></item><item><property name="text"><string>48000</string></property></item></widget></item>
       </layout>
      </item>
     </layout>

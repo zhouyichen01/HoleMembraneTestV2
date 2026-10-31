@@ -102,7 +102,10 @@ class MicoutputVoltageInterface(QDialog):
                 self.reset_output_clicked()
 
     def create_signal(self):
-        samplerate = utils.get_impedance_tube_sample_rate()
+        res, config = utils.get_config_content("basic_params.json")
+        if not res:
+            raise ValueError("basic_params.json 导入错误")
+        samplerate = int(config["basic_params"]["output_sample_rate"])
         config_path = utils.get_config_path("output_signal_setting.json")
         try:
             with open(config_path, "r", encoding="utf-8") as f:
@@ -134,7 +137,10 @@ class MicoutputVoltageInterface(QDialog):
     def test_calibration(self):
         try:
             params_voltage = self.target_voltage_box.value()
-            samplerate = utils.get_impedance_tube_sample_rate()
+            res, config = utils.get_config_content("basic_params.json")
+            if not res:
+                raise ValueError("basic_params.json 导入错误")
+            samplerate = int(config["basic_params"]["output_sample_rate"])
             config_path = utils.get_config_path("output_signal_setting.json")
             try:
                 with open(config_path, "r", encoding="utf-8") as f:
@@ -252,9 +258,9 @@ class MicoutputVoltageInterface(QDialog):
         """
         self.v2pa_factor = None
         self.sensitivity = None
-        samplerate = utils.get_impedance_tube_sample_rate()
         res, content = utils.get_config_content("basic_params.json")
         if res:
+            samplerate = int(content["basic_params"]["input_sample_rate"])
             channels_counts = content["basic_params"]["input_channel_count"]
         else:
             QMessageBox.critical(self, "错误", f"校准失败：basic_params.json导入错误")

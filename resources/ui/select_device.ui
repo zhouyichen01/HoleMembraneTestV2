@@ -51,6 +51,27 @@
           </property>
          </widget>
         </item>
+        <item>
+         <widget class="QLabel" name="output_sample_rate_label">
+          <property name="text">
+           <string>采样率：</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QComboBox" name="output_sample_rate_combo">
+          <item>
+           <property name="text">
+            <string>44100</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>48000</string>
+           </property>
+          </item>
+         </widget>
+        </item>
        </layout>
       </widget>
      </item>
@@ -68,6 +89,27 @@
             <verstretch>0</verstretch>
            </sizepolicy>
           </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLabel" name="input_sample_rate_label">
+          <property name="text">
+           <string>采样率：</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QComboBox" name="input_sample_rate_combo">
+          <item>
+           <property name="text">
+            <string>44100</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>48000</string>
+           </property>
+          </item>
          </widget>
         </item>
        </layout>

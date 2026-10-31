@@ -531,18 +531,6 @@ def write_config_content(filename, config):
         print(f"写入文件失败: {e}")
         return False
 
-def get_impedance_tube_sample_rate():
-    """读取阻抗管参数中已保存的采样率，仅允许 44.1/48 kHz。"""
-    try:
-        ok, config = get_config_content("imp_tube_params_setting.json")
-        if ok:
-            sample_rate = int(config.get("tube_params", {}).get("sample_rate", 0))
-            if sample_rate in (44100, 48000):
-                return sample_rate
-    except (TypeError, ValueError):
-        pass
-    return None
-
 def init_selected_devide():
     """
     初始化输入输出设备。
@@ -601,13 +589,15 @@ def init_selected_devide():
 
 
 def save_selected_devices(input_device_index, output_device_index, input_device_name, output_device_name, input_type,
-                          output_type, input_channel_count):
+                          output_type, input_channel_count, input_sample_rate, output_sample_rate):
     """
     保存选择的设备信息到 basic_params.json。
     - 打开配置文件并更新输入/输出设备参数。
     - 将修改后的配置写回文件。
     """
     try:
+        if input_sample_rate not in (44100, 48000) or output_sample_rate not in (44100, 48000):
+            raise ValueError("输入和输出设备的采样率只能为 44100 Hz 或 48000 Hz。")
         config_path = get_config_path("basic_params.json")
 
         # 如果文件不存在，直接报错
@@ -626,15 +616,18 @@ def save_selected_devices(input_device_index, output_device_index, input_device_
                 config["basic_params"].get("input_selected_device_id") != input_device_index
                 or config["basic_params"].get("input_selected_device_name") != input_device_name
                 or config["basic_params"].get("input_selected_device_type") != input_type
+                or config["basic_params"].get("input_sample_rate") != input_sample_rate
         ):
             config["basic_params"]["is_clear"] = 1  # 1是清空mic_cal.json
         config["basic_params"]["input_selected_device_id"] = input_device_index
         config["basic_params"]["input_selected_device_name"] = input_device_name
         config["basic_params"]["input_selected_device_type"] = input_type
+        config["basic_params"]["input_sample_rate"] = input_sample_rate
 
         config["basic_params"]["output_selected_device_id"] = output_device_index
         config["basic_params"]["output_selected_device_name"] = output_device_name
         config["basic_params"]["output_selected_device_type"] = output_type
+        config["basic_params"]["output_sample_rate"] = output_sample_rate
         config["basic_params"]["input_channel_count"] = input_channel_count
         # 写入文件
         with open(config_path, "w", encoding="utf-8") as f:

@@ -48,6 +48,8 @@ class SelectDeviceInterface(QDialog):
         self.refresh_devices.clicked.connect(self.refresh_device_list)
         self.comboBox.setMinimumWidth(self._scaled(350, 180))
         self.comboBox_2.setMinimumWidth(self._scaled(350, 180))
+        self.output_sample_rate_combo.setMinimumWidth(self._scaled(80, 70))
+        self.input_sample_rate_combo.setMinimumWidth(self._scaled(80, 70))
         # 加永久布局
         self.groupBox_4 = self.findChild(QGroupBox, 'groupBox_4')
         self.channels_layout = QVBoxLayout(self.groupBox_4)
@@ -58,6 +60,20 @@ class SelectDeviceInterface(QDialog):
         self.save_vp_button.setFixedWidth(self._scaled(75, 65))
         self.save_vp_button.clicked.connect(self.save_vp_value)
         self.load_vp_value()
+
+    def load_sample_rates(self):
+        """从设备配置载入输入、输出设备各自的采样率。"""
+        res, config = utils.get_config_content("basic_params.json")
+        if not res:
+            return
+
+        basic_params = config.get("basic_params", {})
+        input_rate = basic_params.get("input_sample_rate")
+        output_rate = basic_params.get("output_sample_rate")
+        if input_rate in (44100, 48000):
+            self.input_sample_rate_combo.setCurrentText(str(input_rate))
+        if output_rate in (44100, 48000):
+            self.output_sample_rate_combo.setCurrentText(str(output_rate))
 
     def load_vp_value(self):
         res, config = utils.get_config_content("basic_params.json")
@@ -176,6 +192,7 @@ class SelectDeviceInterface(QDialog):
 
         self.tableView.setModel(model)
         self._apply_table_sizing()
+        self.load_sample_rates()
         # 自动加载通道
         self.load_channels()
 
@@ -251,6 +268,8 @@ class SelectDeviceInterface(QDialog):
     def save_all_device_settings(self):
         output_index = self.comboBox.currentData()
         input_index = self.comboBox_2.currentData()
+        output_sample_rate = int(self.output_sample_rate_combo.currentText())
+        input_sample_rate = int(self.input_sample_rate_combo.currentText())
 
         if input_index is None or output_index is None:
             QMessageBox.warning(self, "警告", "请选择输入和输出设备")
@@ -279,10 +298,11 @@ class SelectDeviceInterface(QDialog):
             input_channel_count = input_device.get('max_input_channels', 0)
 
             utils.save_selected_devices(input_device_index, output_device_index, input_device_name, output_device_name,
-                                        input_type, output_type, input_channel_count)
+                                        input_type, output_type, input_channel_count,
+                                        input_sample_rate, output_sample_rate)
             # 重载json
             utils.refresh_mic_config_json(self)
-            QMessageBox.information(self, "成功", "输入输出设备保存成功！")
+            QMessageBox.information(self, "成功", "输入输出设备及采样率保存成功！")
             # 刷新选择通道ui
             self.load_channels()
         except Exception as e:

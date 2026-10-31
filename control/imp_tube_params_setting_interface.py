@@ -60,8 +60,6 @@ class ImptubeParamsSetInterface(QDialog):
             with open(config_path, "r", encoding="utf-8") as f:
                 config = json.load(f)
                 self.tube_params = config["tube_params"]
-                sample_rate = str(self.tube_params["sample_rate"])
-                self.sample_rate_value.setCurrentText(sample_rate)
                 self.sample_area_value.setText(str(self.tube_params["sample_area_mm2"]))
                 self.incident_tube_radius_value.setText(str(self.tube_params["incident_tube_radius_mm"]))
                 self.rear_mic_sensitivity_value.setText(str(self.tube_params["rear_mic_sensitivity_v_per_pa"]))
@@ -77,13 +75,7 @@ class ImptubeParamsSetInterface(QDialog):
     def save(self):
         config_path = utils.get_config_path("imp_tube_params_setting.json")
         try:
-            sample_rate = int(self.sample_rate_value.currentText())
-            if sample_rate not in (44100, 48000):
-                raise ValueError("采样率只能选择 44100 Hz 或 48000 Hz。")
-
             tube_params = {
-                "sample_rate": sample_rate,
-                "nfft": sample_rate,
                 "sample_area_mm2": float(self.sample_area_value.text()),
                 "incident_tube_radius_mm": float(self.incident_tube_radius_value.text()),
                 "rear_mic_sensitivity_v_per_pa": float(self.rear_mic_sensitivity_value.text()),

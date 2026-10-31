@@ -130,8 +130,10 @@ class OutputSignalSetInterface(QDialog):
 
     def play_audio(self):
         try:
-            # 使用“阻抗管参数设置”中保存的采样率。
-            samplerate = utils.get_impedance_tube_sample_rate()
+            res, config = utils.get_config_content("basic_params.json")
+            if not res:
+                raise ValueError("basic_params.json 导入错误")
+            samplerate = int(config["basic_params"]["output_sample_rate"])
             info = {
                 "signal_time": float(self.signal_time.text()),
                 "hz_down": float(self.hz_down.text()),
@@ -153,8 +155,10 @@ class OutputSignalSetInterface(QDialog):
 
     def save_wav(self):
         try:
-            # 使用“阻抗管参数设置”中保存的采样率。
-            samplerate = utils.get_impedance_tube_sample_rate()
+            res, config = utils.get_config_content("basic_params.json")
+            if not res:
+                raise ValueError("basic_params.json 导入错误")
+            samplerate = int(config["basic_params"]["output_sample_rate"])
             self.signal_info = {
                 "signal_time": float(self.signal_time.text()),
                 "hz_down": float(self.hz_down.text()),

@@ -430,10 +430,16 @@ class MicAdjustInterface(QDialog):
 
             self.streaming_buffer = []
             QApplication.processEvents()
-            # 与阻抗测试使用同一采样率，确保校准文件与测试文件的频率轴一致。
-            samplerate = utils.get_impedance_tube_sample_rate()
-            if samplerate not in (44100, 48000):
-                raise ValueError("请先在阻抗管参数设置中选择 44100 Hz 或 48000 Hz。")
+            res, config = utils.get_config_content("basic_params.json")
+            if not res:
+                raise ValueError("basic_params.json 导入错误")
+            input_rate = int(config["basic_params"]["input_sample_rate"])
+            output_rate = int(config["basic_params"]["output_sample_rate"])
+            if input_rate not in (44100, 48000) or output_rate not in (44100, 48000):
+                raise ValueError("请先在“硬件设备选择”中设置 44100 Hz 或 48000 Hz。")
+            if input_rate != output_rate:
+                raise ValueError("同步播放和录音时，麦克风和扬声器的采样率必须相同。")
+            samplerate = input_rate
             duration = self.signal_info['signal_time']
 
             # 根据目标电压，校准并生成激励信号
@@ -469,8 +475,7 @@ class MicAdjustInterface(QDialog):
             record_duration = float(duration) + utils.trim_time
 
             self.logger.info("开始播放并录音...")
-            # 读设备（你已经保存到 basic_params.json）
-            ok, config = utils.get_config_content("basic_params.json")
+            # 读设备（已从 basic_params.json 读取）
             input_device = config["basic_params"]["input_selected_device_id"]
             output_device = config["basic_params"]["output_selected_device_id"]
             self.logger.info(f"开始流式播放并录音...dev=({input_device},{output_device})")

@@ -762,10 +762,16 @@ class MainWindow(QMainWindow):
                 self.del_cross()
             self.streaming_buffer = []
             QApplication.processEvents()
-            # 使用“阻抗管参数设置”中保存的采样率
-            samplerate = utils.get_impedance_tube_sample_rate()
-            if samplerate not in (44100, 48000):
-                raise ValueError("请在“阻抗管参数设置”中选择 44100 Hz 或 48000 Hz 后再测试。")
+            res, config = utils.get_config_content("basic_params.json")
+            if not res:
+                raise ValueError("basic_params.json 导入错误")
+            input_rate = int(config["basic_params"]["input_sample_rate"])
+            output_rate = int(config["basic_params"]["output_sample_rate"])
+            if input_rate not in (44100, 48000) or output_rate not in (44100, 48000):
+                raise ValueError("请在“硬件设备选择”中设置 44100 Hz 或 48000 Hz 的采样率后再测试。")
+            if input_rate != output_rate:
+                raise ValueError("同步播放和录音时，麦克风和扬声器的采样率必须相同。")
+            samplerate = input_rate
             duration = self.signal_info['signal_time']
             # 根据目标电压，校准并生成激励信号
             result, data, amplitude, msg = utils.generate_calibrated_signal(self.signal_info, samplerate)
@@ -799,8 +805,7 @@ class MainWindow(QMainWindow):
                 stimulus_data = np.vstack([silence, stimulus_data])
             record_duration = float(duration) + utils.trim_time
 
-            # 读设备（你已经保存到 basic_params.json）
-            ok, config = utils.get_config_content("basic_params.json")
+            # 读设备（已从 basic_params.json 读取）
             input_device = config["basic_params"]["input_selected_device_id"]
             output_device = config["basic_params"]["output_selected_device_id"]
             self.logger.info(f"开始流式播放并录音..")
@@ -1344,8 +1349,11 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "参数错误", "阻抗管参数未加载，请先检查参数设置。")
             return None
         try:
+            res, config = utils.get_config_content("basic_params.json")
+            if not res:
+                raise ValueError("basic_params.json 导入错误")
             params = {
-                "nfft": int(self.tube_params.get("nfft")),
+                "nfft": int(config["basic_params"]["input_sample_rate"]),
                 "sample_area_mm2": float(self.tube_params.get("sample_area_mm2")),
                 "incident_tube_radius_mm": float(self.tube_params.get("incident_tube_radius_mm")),
                 "rear_mic_sensitivity_v_per_pa": float(self.tube_params.get("rear_mic_sensitivity_v_per_pa")),
