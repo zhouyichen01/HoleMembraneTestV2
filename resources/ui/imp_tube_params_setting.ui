@@ -30,7 +30,7 @@
        <property name="verticalSpacing"><number>5</number></property>
        <item row="0" column="0"><widget class="QLabel" name="tube_temperature_label"><property name="text"><string>管中温度(℃)：</string></property></widget></item>
        <item row="0" column="1"><widget class="QLineEdit" name="tube_temperature_value"><property name="maximumSize"><size><width>62</width><height>16777215</height></size></property><property name="alignment"><set>Qt::AlignCenter</set></property></widget></item>
-       <item row="1" column="0"><widget class="QLabel" name="incident_tube_radius_label"><property name="text"><string>入射管半径r1(mm)：</string></property></widget></item>
+       <item row="1" column="0"><widget class="QLabel" name="incident_tube_radius_label"><property name="text"><string>入射管半径r&lt;sub&gt;1&lt;/sub&gt;(mm)：</string></property></widget></item>
        <item row="1" column="1"><widget class="QLineEdit" name="incident_tube_radius_value"><property name="maximumSize"><size><width>62</width><height>16777215</height></size></property><property name="alignment"><set>Qt::AlignCenter</set></property></widget></item>
        <item row="2" column="0"><widget class="QLabel" name="rear_mic_sensitivity_label"><property name="text"><string>传声器2灵敏度(V/Pa)：</string></property></widget></item>
        <item row="2" column="1"><widget class="QLineEdit" name="rear_mic_sensitivity_value"><property name="maximumSize"><size><width>62</width><height>16777215</height></size></property><property name="alignment"><set>Qt::AlignCenter</set></property></widget></item>
@@ -45,9 +45,9 @@
        <property name="verticalSpacing"><number>5</number></property>
        <item row="0" column="0"><widget class="QLabel" name="back_cavity_depth_label"><property name="text"><string>后腔深度L(mm)：</string></property></widget></item>
        <item row="0" column="1"><widget class="QLineEdit" name="back_cavity_depth_value"><property name="maximumSize"><size><width>62</width><height>16777215</height></size></property><property name="alignment"><set>Qt::AlignCenter</set></property></widget></item>
-       <item row="1" column="0"><widget class="QLabel" name="sample_area_label"><property name="text"><string>待测样品面积Ss(mm²)：</string></property></widget></item>
+       <item row="1" column="0"><widget class="QLabel" name="sample_area_label"><property name="text"><string>待测样品面积S&lt;sub&gt;s&lt;/sub&gt;(mm²)：</string></property></widget></item>
        <item row="1" column="1"><widget class="QLineEdit" name="sample_area_value"><property name="maximumSize"><size><width>62</width><height>16777215</height></size></property><property name="alignment"><set>Qt::AlignCenter</set></property></widget></item>
-       <item row="2" column="0"><widget class="QLabel" name="back_cavity_radius_label"><property name="text"><string>后腔半径r2(mm)：</string></property></widget></item>
+       <item row="2" column="0"><widget class="QLabel" name="back_cavity_radius_label"><property name="text"><string>后腔半径r&lt;sub&gt;2&lt;/sub&gt;(mm)：</string></property></widget></item>
        <item row="2" column="1"><widget class="QLineEdit" name="back_cavity_radius_value"><property name="maximumSize"><size><width>62</width><height>16777215</height></size></property><property name="alignment"><set>Qt::AlignCenter</set></property></widget></item>
       </layout>
      </item>
