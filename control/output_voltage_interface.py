@@ -2,10 +2,11 @@ import json
 import os
 
 import numpy as np
+import pyqtgraph as pg
 import sounddevice as sd
 
 from PyQt5.QtCore import QFile, Qt, QTimer
-from PyQt5.QtWidgets import QDialog, QMessageBox
+from PyQt5.QtWidgets import QDialog, QMessageBox, QGroupBox, QLabel, QVBoxLayout
 from PyQt5.uic import loadUi
 from PyQt5 import QtWidgets
 
@@ -33,6 +34,9 @@ class MicoutputVoltageInterface(QDialog):
         self.stream_timer.timeout.connect(self._handle_input_calibration_stream)
         self._input_channel_index = None
         self._input_vp = None
+        self._input_sample_rate = 0  # 本次录音采样率，用于将采样点换算成秒
+        self._input_duration = 0  # 本次录音总时长，读取输出信号配置中的 signal_time
+        self._input_waveform = np.array([], dtype=np.float32)  # 实时波形数据，只保留最近 3 秒
         self.logger = LogManager.set_log_handler("输入/输出校准")
         self.init_ui()
         self.init_fun()
@@ -50,6 +54,7 @@ class MicoutputVoltageInterface(QDialog):
         self.ui.tabWidget.setTabText(0, "输出校准")
         self.ui.tabWidget.setTabText(1, "输入校准")
         self.setWindowFlags(self.windowFlags() | Qt.WindowMinimizeButtonHint| Qt.WindowMaximizeButtonHint)
+        self.setFixedSize(500, 600)
         self.show()
         self.logger.info("打开输入/输出校准")
 
@@ -69,6 +74,61 @@ class MicoutputVoltageInterface(QDialog):
         self.standard_spl_i.setChecked(True)
         self.init_channel_combobox()
         self.save_mic_button.clicked.connect(self.save_mic_deviation_value)
+        self.init_input_waveform()
+
+    def init_input_waveform(self):
+        """在输入校准页显示当前所选麦克风的实时波形。"""
+        self.groupBox_6.setFixedHeight(75)
+        self.record_state.setFixedWidth(100)
+        try:
+            self._input_duration = self.get_input_calibration_duration()
+        except (TypeError, ValueError, KeyError):
+            self._input_duration = 0
+        self.record_time_label = QLabel(f"时长：0.0 / {self._input_duration:.1f} s", self)
+        self.horizontalLayout_7.addWidget(self.record_time_label)
+
+        waveform_group = QGroupBox("实时波形", self)
+        waveform_group.setFixedHeight(210)
+        waveform_layout = QVBoxLayout(waveform_group)
+        waveform_layout.setContentsMargins(6, 6, 6, 6)
+        self.waveform_plot = pg.PlotWidget()
+        waveform_layout.addWidget(self.waveform_plot)
+        self.verticalLayout_6.addWidget(waveform_group)
+
+        self.waveform_plot.setBackground("white")
+        self.waveform_plot.setLabel("bottom", "Time", units="s")
+        self.waveform_plot.setLabel("left", "Amplitude", units="V")
+        self.waveform_plot.getAxis("bottom").setTextPen("black")
+        self.waveform_plot.getAxis("left").setTextPen("black")
+        self.waveform_plot.showGrid(x=True, y=True, alpha=0.25)
+        self.waveform_curve = self.waveform_plot.plot([], [], pen=pg.mkPen(color=(76, 120, 168)))
+
+    @staticmethod
+    def get_input_calibration_duration():
+        """读取输出信号配置中的信号时长，作为输入校准录制时长。"""
+        res, config = utils.get_config_content("output_signal_setting.json")
+        if not res:
+            raise ValueError("output_signal_setting.json 导入错误")
+        duration = float(config["signal_info"]["signal_time"])
+        if duration <= 0:
+            raise ValueError("信号时长必须大于 0")
+        return duration
+
+    def update_input_waveform(self, chunks):
+        """将本次队列中的录音块追加到图中，只保留最近 3 秒。"""
+        if not chunks or self._input_channel_index is None:
+            return
+        samples = np.concatenate([chunk[:, self._input_channel_index] for chunk in chunks])
+        self._input_waveform = np.concatenate((self._input_waveform, samples))
+        max_samples = int(self._input_sample_rate * 3)
+        self._input_waveform = self._input_waveform[-max_samples:]
+
+        elapsed = self.stream_instance.samples_captured / self._input_sample_rate
+        start_time = max(0.0, elapsed - len(self._input_waveform) / self._input_sample_rate)
+        time_axis = start_time + np.arange(len(self._input_waveform)) / self._input_sample_rate
+        self.waveform_curve.setData(time_axis, self._input_waveform)
+        self.waveform_plot.setXRange(max(0.0, elapsed - 3), max(3.0, elapsed), padding=0)
+        self.record_time_label.setText(f"时长：{elapsed:.1f} / {self._input_duration:.1f} s")
 
     def get_calibration_param(self):
         calibration_nums = self.calibration_nums_box.value()
@@ -297,8 +357,13 @@ class MicoutputVoltageInterface(QDialog):
 
             self._input_channel_index = channel_index
             self._input_vp = content["basic_params"]["Vp"]
-            duration = 10
-            silence = np.zeros((duration * samplerate, int(output_channels)), dtype=np.float32)
+            duration = self.get_input_calibration_duration()
+            self._input_sample_rate = samplerate
+            self._input_duration = duration
+            self._input_waveform = np.array([], dtype=np.float32)
+            self.waveform_curve.setData([], [])
+            self.record_time_label.setText(f"时长：0.0 / {duration:.1f} s")
+            silence = np.zeros((int(duration * samplerate), int(output_channels)), dtype=np.float32)
             self.cal_button.setEnabled(False)
             self.stream_instance = DuplexStreamingPlayRec()
             self.stream_instance.start(
@@ -320,11 +385,12 @@ class MicoutputVoltageInterface(QDialog):
             AudioSessionManager.release(self)
 
     def _handle_input_calibration_stream(self):
-        """持续取出回调数据；不更新计时文本，录制结束后再计算校准结果。"""
+        """持续取出回调数据，刷新波形和计时，录制结束后计算校准结果。"""
         if self.stream_instance is None:
             return
 
-        self.stream_instance.process_queue()
+        chunks = self.stream_instance.process_queue()
+        self.update_input_waveform(chunks)
         if self.stream_instance.is_recording:
             return
 
@@ -435,6 +501,9 @@ class MicoutputVoltageInterface(QDialog):
         self.deviation_lineedit.clear()
         self.v2pa_factor = None
         self.sensitivity = None
+        self._input_waveform = np.array([], dtype=np.float32)
+        self.waveform_curve.setData([], [])
+        self.record_time_label.setText(f"时长：0.0 / {self._input_duration:.1f} s")
 
     def closeEvent(self, event):
         self._stop_input_calibration_stream()
