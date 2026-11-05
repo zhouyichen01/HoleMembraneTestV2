@@ -60,7 +60,8 @@ class SelectDeviceInterface(QDialog):
         self.groupBox_4 = self.findChild(QGroupBox, 'groupBox_4')
         self.channels_layout = QVBoxLayout(self.groupBox_4)
         self.groupBox_4.setLayout(self.channels_layout)
-        self.groupBox_4.setFixedWidth(self._scaled(140, 90))
+        # 为每个麦克风预留灵敏度显示区域。
+        self.groupBox_4.setFixedWidth(self._scaled(290, 190))
         self.groupBox_5.setFixedWidth(self._scaled(180, 130))
         self.vp_line_edit.setFixedWidth(self._scaled(70, 55))
         self.save_vp_button.setFixedWidth(self._scaled(75, 65))
@@ -221,15 +222,15 @@ class SelectDeviceInterface(QDialog):
             QMessageBox.critical(self, "读取失败", "无法读取配置文件内容 basic_params.json！")
 
     def add_channels_to_ui(self, channel_count):
-        # 读取 mic_calibration.json 文件，获取每个通道的 binding_index
+        # 读取 mic_calibration.json 文件，获取每个通道的 binding_index 和灵敏度
         res, mic_config = utils.get_config_content("mic_calibration.json")
         if res:
             for i in range(1, channel_count + 1):
-                channel_name = f"In{i}"
+                mic_name = f"Mic{i}"
 
                 row_layout = QHBoxLayout()
                 # 左侧显示通道名
-                channel_label = QLabel(f"Mic{i}:", self)
+                channel_label = QLabel(f"{mic_name}:", self)
                 row_layout.addWidget(channel_label)
                 # 右侧显示对应的 QComboBox
                 combo_box = QComboBox(self)
@@ -239,11 +240,21 @@ class SelectDeviceInterface(QDialog):
                 # 将 In1, In2, In3, In4 等按顺序添加到下拉框
                 for j in range(1, channel_count + 1):
                     combo_box.addItem(f"In{j}")
-                # 获取该通道的 binding_index
-                binding_index = mic_config.get(channel_name, {}).get("binding_index", -1)
+                # 获取该麦克风所绑定通道的 binding_index
+                binding_index = mic_config.get(f"In{i}", {}).get("binding_index", -1)
                 if binding_index != -1:
                     combo_box.setCurrentIndex(binding_index)
                 row_layout.addWidget(combo_box)
+
+                sensitivity_label = QLabel(self)
+                sensitivity_label.setObjectName(f"sensitivity_label_{mic_name}")
+                row_layout.addWidget(sensitivity_label)
+                self.update_mic_sensitivity_label(combo_box, sensitivity_label, mic_config)
+                combo_box.currentTextChanged.connect(
+                    lambda channel_name, label=sensitivity_label: self.update_mic_sensitivity_label(
+                        None, label, mic_config, channel_name
+                    )
+                )
                 self.channels_layout.addLayout(row_layout)
             # 添加保存按钮
             save_channel_button = QPushButton("保存通道设置", self.groupBox_4)
@@ -256,6 +267,13 @@ class SelectDeviceInterface(QDialog):
             self.groupBox_4.update()
         else:
             QMessageBox.critical(self, "读取失败", "无法读取配置文件内容 mic_calibration.json！")
+
+    @staticmethod
+    def update_mic_sensitivity_label(combo_box, sensitivity_label, mic_config, channel_name=None):
+        """显示当前映射通道保存的麦克风灵敏度。"""
+        channel_name = channel_name or combo_box.currentText()
+        sensitivity = mic_config.get(channel_name, {}).get("sensitivity", "0")
+        sensitivity_label.setText(f"{sensitivity} V/Pa")
 
     def clear_layout(self, layout):
         """

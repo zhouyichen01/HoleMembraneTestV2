@@ -1,7 +1,7 @@
 {
    "calibration_coefficients": [
-      7.916666666666664,
+      0.29411764705882343,
       1.2449542928034842e-17
    ],
-   "max_voltage": 0.12
+   "max_voltage": 3.23
 }
