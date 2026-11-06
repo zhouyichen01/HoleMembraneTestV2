@@ -12,7 +12,8 @@ from PyQt5 import QtWidgets
 from PyQt5.QtCore import QFile, Qt, QTimer, QEvent
 from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel, QMessageBox, \
-    QVBoxLayout, QMenu, QAction, QFileDialog, QInputDialog, QColorDialog
+    QVBoxLayout, QMenu, QAction, QFileDialog, QInputDialog, QColorDialog, QDialog, QFormLayout, \
+    QDoubleSpinBox, QCheckBox, QDialogButtonBox
 from PyQt5.uic import loadUi
 from pyqtgraph import mkPen
 from scipy.signal import savgol_filter
@@ -49,6 +50,9 @@ class MainWindow(QMainWindow):
         self.mic2_data = None
         self.mic1_pa = None
         self.mic2_pa = None
+        # 主曲线显示范围：X 轴使用实际频率值，Y 轴使用线性数值。
+        self.plot3_display_ranges = {"x": None, "y": None}
+        self.plot3_range_locked = False
         self.logger = LogManager.set_log_handler("主窗口")
         # ===== 流式录音相关 =====
         self.streaming_buffer = []
@@ -192,6 +196,9 @@ class MainWindow(QMainWindow):
         self.plot3.setBackground('white')
         self.plot3.setContextMenuPolicy(Qt.CustomContextMenu)
         self.plot3.customContextMenuRequested.connect(self.on_plot3_menu)
+        self.plot3_range_lock_action = QAction("锁定显示范围", self)
+        self.plot3_range_lock_action.setCheckable(True)
+        self.plot3_range_lock_action.toggled.connect(self.set_plot3_range_locked)
 
         self.plot3.getAxis('bottom').enableAutoSIPrefix(False)
         self.plot3.getAxis('left').enableAutoSIPrefix(False) # 禁用自动转换单位
@@ -388,14 +395,11 @@ class MainWindow(QMainWindow):
         # 确保“保存当前曲线”只添加一次；若已存在则仅保证信号连接正确
         existing_save_action = None
         existing_range_action = None
-        existing_reset_range_action = None
         for i in menu.actions():
             if i.text() == "保存当前曲线":
                 existing_save_action = i
             elif i.text() == "设置显示范围":
                 existing_range_action = i
-            elif i.text() == "恢复全部范围":
-                existing_reset_range_action = i
 
         if existing_save_action is None:
             act = QAction("保存当前曲线", self)
@@ -405,53 +409,109 @@ class MainWindow(QMainWindow):
             act = QAction("设置显示范围", self)
             act.triggered.connect(self.set_plot3_display_range)
             menu.addAction(act)
-
-        if existing_reset_range_action is None:
-            act = QAction("恢复全部范围", self)
-            act.triggered.connect(lambda: self.plot3.plotItem.enableAutoRange(axis='xy', enable=True))
-            menu.addAction(act)
         # 弹出完整菜单（自带 X axis 等），自定义按钮也在其中
         menu.exec_(self.plot3.mapToGlobal(pos))
 
     def set_plot3_display_range(self):
-        text, ok = QInputDialog.getText(
-            self,
-            "设置显示范围",
-            "输入范围：X最小,X最大；可选 Y最小,Y最大\n例如：100,200 或 100,200;1000,20000"
-        )
-        if not ok:
+        """通过独立字段设置主曲线坐标轴范围，避免手动输入组合格式。"""
+        dialog = QDialog(self)
+        dialog.setWindowTitle("显示范围设置")
+        dialog.setMinimumWidth(330)
+
+        layout = QVBoxLayout(dialog)
+        form = QFormLayout()
+        layout.addLayout(form)
+
+        current_x, current_y = self.plot3.getViewBox().viewRange()
+        saved_x = self.plot3_display_ranges["x"]
+        saved_y = self.plot3_display_ranges["y"]
+        x_min, x_max = saved_x or (10 ** current_x[0], 10 ** current_x[1])
+        y_min, y_max = saved_y or current_y
+
+        x_min_input = self._create_range_spinbox(0.001, 1_000_000_000, x_min)
+        x_max_input = self._create_range_spinbox(0.001, 1_000_000_000, x_max)
+        y_min_input = self._create_range_spinbox(-1_000_000_000, 1_000_000_000, y_min)
+        y_max_input = self._create_range_spinbox(-1_000_000_000, 1_000_000_000, y_max)
+        form.addRow("频率下限 (Hz)：", x_min_input)
+        form.addRow("频率上限 (Hz)：", x_max_input)
+        form.addRow("Y轴下限 (Rayl)：", y_min_input)
+        form.addRow("Y轴上限 (Rayl)：", y_max_input)
+
+        lock_checkbox = QCheckBox("锁定显示范围（后续测试保持此范围）", dialog)
+        lock_checkbox.setChecked(self.plot3_range_locked)
+        layout.addWidget(lock_checkbox)
+
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, parent=dialog)
+        auto_range_button = buttons.addButton("恢复自动范围", QDialogButtonBox.ResetRole)
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        auto_range_button.clicked.connect(self.reset_plot3_display_range)
+        auto_range_button.clicked.connect(dialog.reject)
+        layout.addWidget(buttons)
+
+        if dialog.exec_() != QDialog.Accepted:
             return
 
-        text = text.strip().replace("；", ";").replace("，", ",")
-        if not text:
+        x_min, x_max = x_min_input.value(), x_max_input.value()
+        y_min, y_max = y_min_input.value(), y_max_input.value()
+        if x_min >= x_max:
+            QMessageBox.warning(self, "提示", "频率下限必须小于频率上限。")
+            return
+        if y_min >= y_max:
+            QMessageBox.warning(self, "提示", "Y轴下限必须小于Y轴上限。")
             return
 
-        parts = [i.strip() for i in text.split(";")]
-        try:
-            if parts[0]:
-                x_min, x_max = self._parse_positive_range(parts[0], "X")
-                self.plot3.setXRange(np.log10(x_min), np.log10(x_max), padding=0)
-
-            if len(parts) > 1 and parts[1]:
-                y_min, y_max = self._parse_positive_range(parts[1], "Y")
-                self.plot3.setYRange(np.log10(y_min), np.log10(y_max), padding=0)
-
-        except ValueError as e:
-            QMessageBox.warning(self, "提示", str(e))
+        self.plot3_display_ranges["x"] = (x_min, x_max)
+        self.plot3_display_ranges["y"] = (y_min, y_max)
+        self.plot3_range_lock_action.setChecked(lock_checkbox.isChecked())
+        self._apply_plot3_display_range()
+        self.save_plot3_display_range()
 
     @staticmethod
-    def _parse_positive_range(text, axis_name):
-        values = [i.strip() for i in text.split(",")]
-        if len(values) != 2:
-            raise ValueError(f"{axis_name}范围格式应为：最小值,最大值")
+    def _create_range_spinbox(minimum, maximum, value):
+        spinbox = QDoubleSpinBox()
+        spinbox.setRange(minimum, maximum)
+        spinbox.setDecimals(1)
+        spinbox.setSingleStep(0.1)
+        spinbox.setValue(value)
+        return spinbox
 
-        start = float(values[0])
-        end = float(values[1])
-        if start <= 0 or end <= 0:
-            raise ValueError(f"{axis_name}范围必须大于 0")
-        if start >= end:
-            raise ValueError(f"{axis_name}最小值必须小于最大值")
-        return start, end
+    def set_plot3_range_locked(self, locked):
+        """锁定后，每次新测试都沿用已设置的 X/Y 显示范围。"""
+        if locked and not any(self.plot3_display_ranges.values()):
+            QMessageBox.warning(self, "提示", "请先设置 X 或 Y 的显示范围，再锁定范围。")
+            self.plot3_range_lock_action.blockSignals(True)
+            self.plot3_range_lock_action.setChecked(False)
+            self.plot3_range_lock_action.blockSignals(False)
+            return
+
+        self.plot3_range_locked = locked
+        if locked:
+            self._apply_plot3_display_range()
+        else:
+            self.plot3.plotItem.enableAutoRange(axis='xy', enable=True)
+        self.save_plot3_display_range()
+
+    def _apply_plot3_display_range(self):
+        """应用已缓存的显示范围；没有设置的坐标轴仍保持自动适配。"""
+        x_range = self.plot3_display_ranges["x"]
+        y_range = self.plot3_display_ranges["y"]
+
+        if x_range is None:
+            self.plot3.plotItem.enableAutoRange(axis='x', enable=True)
+        else:
+            self.plot3.setXRange(np.log10(x_range[0]), np.log10(x_range[1]), padding=0)
+
+        if y_range is None:
+            self.plot3.plotItem.enableAutoRange(axis='y', enable=True)
+        else:
+            self.plot3.setYRange(y_range[0], y_range[1], padding=0)
+
+    def reset_plot3_display_range(self):
+        """取消锁定并恢复自动适配；已输入的范围会保留，方便再次锁定。"""
+        self.plot3_range_lock_action.setChecked(False)
+        self.plot3.plotItem.enableAutoRange(axis='xy', enable=True)
+        self.save_plot3_display_range()
 
     def save_test_result_to_json(self):
         """
@@ -625,10 +685,65 @@ class MainWindow(QMainWindow):
         try:
             with open(basic_params_path , "r", encoding="utf-8") as f:
                 basic_config  = json.load(f)
-                self.soft_value = basic_config.get("basic_params").get("soft_value")
+                basic_params = basic_config.get("basic_params", {})
+                self.soft_value = basic_params.get("soft_value", 0)
+                self.load_plot3_display_range(basic_params.get("plot3_display_range", {}))
         except Exception as e:
             self.logger.error(f"读取配置失败: {e}")
             QMessageBox.warning(self, "错误", f"读取{basic_params_path}配置失败：{e}")
+
+    def load_plot3_display_range(self, range_config):
+        """从 basic_params 读取并恢复主曲线的显示范围设置。"""
+        if not isinstance(range_config, dict):
+            return
+
+        try:
+            x_min = float(range_config["x_min"])
+            x_max = float(range_config["x_max"])
+            y_min = float(range_config["y_min"])
+            y_max = float(range_config["y_max"])
+            if (
+                not all(np.isfinite(value) for value in (x_min, x_max, y_min, y_max))
+                or x_min <= 0
+                or x_min >= x_max
+                or y_min >= y_max
+            ):
+                raise ValueError("坐标轴范围无效")
+        except (KeyError, TypeError, ValueError):
+            return
+
+        self.plot3_display_ranges = {
+            "x": (x_min, x_max),
+            "y": (y_min, y_max),
+        }
+        self.plot3_range_locked = bool(range_config.get("is_locked", False))
+        self.plot3_range_lock_action.blockSignals(True)
+        self.plot3_range_lock_action.setChecked(self.plot3_range_locked)
+        self.plot3_range_lock_action.blockSignals(False)
+        if self.plot3_range_locked:
+            self._apply_plot3_display_range()
+
+    def save_plot3_display_range(self):
+        """将主曲线的显示范围和锁定状态写入 basic_params.json。"""
+        x_range = self.plot3_display_ranges["x"]
+        y_range = self.plot3_display_ranges["y"]
+        if x_range is None or y_range is None:
+            return
+
+        res, config = utils.get_config_content("basic_params.json")
+        if not res:
+            self.logger.error("保存显示范围失败：无法读取 basic_params.json")
+            return
+
+        config.setdefault("basic_params", {})["plot3_display_range"] = {
+            "x_min": x_range[0],
+            "x_max": x_range[1],
+            "y_min": y_range[0],
+            "y_max": y_range[1],
+            "is_locked": self.plot3_range_locked,
+        }
+        if not utils.write_config_content("basic_params.json", config):
+            self.logger.error("保存显示范围失败：无法写入 basic_params.json")
 
     def save_basic_params_config(self, soft_value=None, **kwargs):
         basic_params_path = utils.get_config_path("basic_params.json")
@@ -1161,8 +1276,10 @@ class MainWindow(QMainWindow):
         # 关键：只 setData，不再 plot()
         self.curve3.setData(log_f, y)
         self.curve3.show()
-        self.plot3.plotItem.enableAutoRange(axis='xy', enable=True)  # X 和 Y 轴的自动范围调整
-        # self.plot3.plotItem.enableAutoRange(axis='y', enable=False)  # Y轴范围不变
+        if self.plot3_range_locked:
+            self._apply_plot3_display_range()
+        else:
+            self.plot3.plotItem.enableAutoRange(axis='xy', enable=True)
         self.plot_state = True
         # 画历史线
         self.update_history_lines()
