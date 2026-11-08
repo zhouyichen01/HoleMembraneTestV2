@@ -993,11 +993,9 @@ class MainWindow(QMainWindow):
                 pa1, pa2 = MicAdjustInterface.process_chunks(buf, self.mic_binding, self.mic_deviation_db)
                 self.update_time_plot(time_axis, pa1, pa2)
 
-        #3) 录音结束：录音停止-> stream停timer-> 收集结果(recording/err)-> stop/释放stream-> (FFT/保存/画图)-> 恢复按钮&释放占用锁
+        # 3) 录音结束：录音停止-> 停timer-> 收集recording-> 释放stream流资源-> 处理recording
         if not self.stream_instance.is_recording:
-
             self.stream_timer.stop()
-
             stream = self.stream_instance
             self.stream_instance = None
 

@@ -314,7 +314,6 @@ class MicoutputVoltageInterface(QDialog):
     def input_calibration(self):
         """
         启动输入电压校准的流式录音。
-        保持“录制中”状态，不显示或更新计时；录音结束后由定时器收尾。
         """
         self.v2pa_factor = None
         self.sensitivity = None
