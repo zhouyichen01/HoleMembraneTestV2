@@ -1257,14 +1257,23 @@ class MainWindow(QMainWindow):
         self.plot3.scene().sigMouseClicked.connect(self.on_plot3_clicked)
 
         text = self.plot_type_selector.currentText()
-        log_f = np.log10(self.test_result["f"])
+        if is_velocity:
+            log_f = np.log10(self.test_result["f_v"])
+        else:
+            log_f = np.log10(self.test_result["f"])
 
-        if "abs" in text:
+        if text == "传输阻抗率Z abs":
             y = np.asarray(self.test_result["Z_abs"], dtype=float)
-        elif "Re" in text:
+        elif text == "传输阻抗率Z Re":
             y = np.asarray(self.test_result["Z_Re"], dtype=float)
-        elif "Im" in text:
+        elif text == "传输阻抗率Z Im":
             y = np.asarray(self.test_result["Z_Im"], dtype=float)
+        elif text == "质点速度V abs":
+            y = np.asarray(self.test_result["V_abs"], dtype=float)
+        elif text == "质点速度V Re":
+            y = np.asarray(self.test_result["V_Re"], dtype=float)
+        elif text == "质点速度V Im":
+            y = np.asarray(self.test_result["V_Im"], dtype=float)
         else:
             QMessageBox.warning(self, "提示", f"无{text}选项")
             return
@@ -1440,14 +1449,23 @@ class MainWindow(QMainWindow):
     def add_history_line(self, colour, original_data, line_name):
         text = self.plot_type_selector.currentText()
 
-        log_f = np.log10(original_data["f"])
+        if text.startswith("质点速度V"):
+            log_f = np.log10(original_data["f_v"])
+        else:
+            log_f = np.log10(original_data["f"])
 
-        if "abs" in text:
+        if text == "传输阻抗率Z abs":
             y = np.asarray(original_data["Z_abs"], dtype=float)
-        elif "Re" in text:
+        elif text == "传输阻抗率Z Re":
             y = np.asarray(original_data["Z_Re"], dtype=float)
-        elif "Im" in text:
+        elif text == "传输阻抗率Z Im":
             y = np.asarray(original_data["Z_Im"], dtype=float)
+        elif text == "质点速度V abs":
+            y = np.asarray(original_data["V_abs"], dtype=float)
+        elif text == "质点速度V Re":
+            y = np.asarray(original_data["V_Re"], dtype=float)
+        elif text == "质点速度V Im":
+            y = np.asarray(original_data["V_Im"], dtype=float)
         else:
             QMessageBox.warning(self, "提示", f"无{text}选项")
             return
